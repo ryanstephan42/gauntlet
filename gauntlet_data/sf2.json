@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "name": "Street Fighter II",
+    "core": "/lib/libretro/snes9x_libretro.so",
+    "rom": "roms/snes/Street Fighter II Turbo (USA) (Rev 1).sfc",
+    "image": "assets/sf2.png"
+  },
+  "referee": {
+    "address": "0x00FF30", 
+    "bytes": 1,
+    "win_value": 2, 
+    "description": "Checks if P1 Win Counter hits 2"
+  },
+  "shop": [
+    {
+      "id": "full_super",
+      "name": "Full Super Meter",
+      "cost": 3,
+      "description": "Player 1 starts with full super bar",
+      "action_type": "memory_write", 
+      "address": "0x00A5",
+      "value": 100
+    },
+    {
+      "id": "turbo_speed",
+      "name": "Hyper Speed",
+      "cost": 5,
+      "description": "Game runs at 200% speed",
+      "action_type": "retroarch_config",
+      "config_file": "configs/fast_forward.cfg"
+    }
+  ]
+}
