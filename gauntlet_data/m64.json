@@ -3,31 +3,18 @@
     "name": "Mario 64",
     "core": "/lib/libretro/mupen64plus_next_libretro.so",
     "rom": "roms/Super Mario 64 (USA)/Super Mario 64 (USA).z64",
-    "image": "assets/sf2.png"
+    "image": "assets/m64.png"
   },
-  "referee": {
-    "address": "0x00FF30", 
-    "bytes": 1,
-    "win_value": 2, 
-    "description": "Checks if P1 Win Counter hits 2"
-  },
+  "referee": null,
   "shop": [
-    {
-      "id": "full_super",
-      "name": "Full Super Meter",
-      "cost": 3,
-      "description": "Player 1 starts with full super bar",
-      "action_type": "memory_write", 
-      "address": "0x00A5",
-      "value": 100
-    },
     {
       "id": "turbo_speed",
       "name": "Hyper Speed",
       "cost": 5,
       "description": "Game runs at 200% speed",
       "action_type": "retroarch_config",
-      "config_file": "configs/fast_forward.cfg"
+      "config_file": "fast_forward.cfg"
     }
-  ]
+  ],
+  "schema_version": 1
 }
