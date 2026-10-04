@@ -16,6 +16,7 @@ class Settings:
     # RetroArch: `retroarch_command` is an argv prefix (e.g. ["flatpak", "run", ...]);
     # `retroarch_path` is a plain binary. Both empty = auto-detect.
     retroarch_path: str = ""
+    preferred_install: str = ""  # label of a detected install to prefer ("" = first found)
     retroarch_command: list = field(default_factory=list)
     retroarch_host: str = "127.0.0.1"
     retroarch_port: int = 55355

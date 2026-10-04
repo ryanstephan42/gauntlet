@@ -250,6 +250,9 @@ class Launcher:
         self.settings = settings
         extra = settings.retroarch_command or ([settings.retroarch_path] if settings.retroarch_path else None)
         self.installs = installs if installs is not None else find_installs(extra)
+        pref = getattr(settings, "preferred_install", "")
+        if pref:
+            self.installs.sort(key=lambda i: i.label != pref)
 
     @property
     def install(self):
