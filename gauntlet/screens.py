@@ -41,8 +41,19 @@ class ScreenManager:
     def replace(self, screen):
         self._pending.append(("replace", screen))
 
+    def reset(self, screen=None):
+        """Pop back to the root screen, then optionally push `screen`."""
+        self._pending.append(("root", None))
+        if screen is not None:
+            self._pending.append(("push", screen))
+
     def _apply(self, op, screen):
-        if op == "push":
+        if op == "root":
+            while len(self.stack) > 1:
+                self.stack.pop().on_exit()
+            if self.current:
+                self.current.on_resume()
+        elif op == "push":
             if self.current:
                 self.current.on_pause()
             screen.manager = self
