@@ -49,7 +49,12 @@ class RetroArchClient:
             return None
 
     def is_ready(self):
-        return self.send("GET_STATUS") is not None
+        reply = self.send("GET_STATUS")
+        if reply is None:
+            return False
+        parts = reply.split()
+        return (len(parts) >= 2 and parts[0] == "GET_STATUS"
+                and parts[1].upper() in {"PLAYING", "PAUSED"})
 
     def wait_until_ready(self, timeout=30.0, interval=0.5, process=None):
         deadline = time.monotonic() + timeout

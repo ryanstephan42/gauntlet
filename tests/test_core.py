@@ -29,6 +29,17 @@ def test_invalid_game():
     assert len(errs) >= 4
 
 
+def test_unhashable_action_types_are_skipped(tmp_path):
+    for index, action in enumerate(([], {})):
+        bad = json.loads(json.dumps(GOOD))
+        bad["shop"][0]["action_type"] = action
+        assert any("unknown action_type" in error for error in validate_game(bad))
+        (tmp_path / f"bad{index}.json").write_text(json.dumps(bad))
+    games, problems = load_games(str(tmp_path))
+    assert games == []
+    assert set(problems) == {"bad0.json", "bad1.json"}
+
+
 def test_shop():
     s = Shop([{"cost": 3}, {"cost": 9}], 10)
     assert s.buy(0) and s.points == 7
@@ -60,6 +71,34 @@ def test_settings_defaults_and_bad_types(tmp_path):
     assert s.player_count == 2 and s.starting_points == 5
 
 
+def test_settings_invalid_ranges_fall_back_individually(tmp_path):
+    p = tmp_path / "ranges.json"
+    p.write_text(json.dumps({
+        "retroarch_host": "localhost",
+        "retroarch_port": 70000,
+        "player_count": 5,
+        "starting_points": -1,
+        "width": 100,
+        "height": 600,
+        "boot_timeout": float("inf"),
+    }))
+    s = load_settings(str(p))
+    assert s.retroarch_host == "localhost"
+    assert s.retroarch_port == 55355
+    assert s.player_count == 2
+    assert s.starting_points == 10
+    assert s.width == 1024
+    assert s.height == 600
+    assert s.boot_timeout == 30.0
+
+
+def test_boot_timeout_must_be_positive_and_finite(tmp_path):
+    for index, timeout in enumerate((0, -1, float("nan"), float("inf"))):
+        p = tmp_path / f"timeout{index}.json"
+        p.write_text(json.dumps({"boot_timeout": timeout}))
+        assert load_settings(str(p)).boot_timeout == 30.0
+
+
 def test_udp_client():
     srv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     srv.bind(("127.0.0.1", 0))
@@ -80,6 +119,16 @@ def test_udp_client():
     assert c.is_ready()
     t.join(3)
     srv.close()
+
+
+def test_is_ready_requires_loaded_content():
+    client = RetroArchClient()
+    client.send = lambda command: "GET_STATUS MENU"
+    assert not client.is_ready()
+    client.send = lambda command: "GET_STATUS PLAYING"
+    assert client.is_ready()
+    client.send = lambda command: "GET_STATUS PAUSED"
+    assert client.is_ready()
 
 
 def test_udp_timeout_returns_none():

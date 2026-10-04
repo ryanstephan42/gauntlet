@@ -65,7 +65,7 @@ def validate_game(data):
         if not _is_int(item.get("cost")) or item["cost"] < 0:
             errors.append(f"{where}: 'cost' must be a non-negative integer")
         action = item.get("action_type")
-        if action not in ACTION_TYPES:
+        if not isinstance(action, str) or action not in ACTION_TYPES:
             errors.append(f"{where}: unknown action_type {action!r}")
         elif action == "memory_write":
             _check_address(item.get("address"), where, errors)
