@@ -22,8 +22,47 @@ def test_slots_join_leave_hotplug():
     assert s.join(b) == 1
     assert s.join(c) is None
     s.on_disconnect(a)
-    assert s.join(c) == 1 or s.slot_of(c) is not None
+    assert s.slot_of(b) == 1
+    assert s.join(c) == 0
+    assert s.slot_of(b) == 1
+    assert s.slot_of(c) == 0
     assert s.slot_of(a) is None
+
+
+def test_slots_leave_preserves_other_assignments():
+    s = PlayerSlots(3)
+    assert s.join("pad:1") == 0
+    assert s.join("pad:2") == 1
+    s.leave("pad:1")
+    assert s.slot_of("pad:2") == 1
+    assert s.join("pad:3") == 0
+
+
+def test_pygame_joystick_lifecycle_events():
+    from types import SimpleNamespace
+
+    import pygame
+
+    from gauntlet.pg_input import PygameInput
+
+    inp = PygameInput.__new__(PygameInput)
+    inp.pads = {}
+    disconnected = []
+    inp.slots = SimpleNamespace(on_disconnect=disconnected.append)
+    added = []
+    inp._add = added.append
+    event = SimpleNamespace(type=pygame.JOYDEVICEADDED, device_index=2)
+    assert inp.translate(event) is None
+    assert added == [2]
+
+    inp.pads[7] = object()
+    event = SimpleNamespace(type=pygame.JOYDEVICEREMOVED, instance_id=7)
+    assert inp.translate(event) is None
+    assert 7 not in inp.pads
+    assert disconnected == ["pad:7"]
+
+    event = SimpleNamespace(type=pygame.JOYDEVICEREMOVED)
+    assert inp.translate(event) is None
 
 
 def test_list_scroll():

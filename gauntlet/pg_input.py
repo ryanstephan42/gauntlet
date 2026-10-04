@@ -24,10 +24,15 @@ class PygameInput:
             return im.InputEvent(im.KEYBOARD, action) if action else None
         if t == pygame.JOYDEVICEADDED:
             self._add(event.device_index)
+            return None
         elif t == pygame.JOYDEVICEREMOVED:
-            self.pads.pop(event.instance_id, None)
+            instance_id = getattr(event, "instance_id", None)
+            if instance_id is None:
+                return None
+            self.pads.pop(instance_id, None)
             if self.slots:
-                self.slots.on_disconnect(im.pad_device(event.instance_id))
+                self.slots.on_disconnect(im.pad_device(instance_id))
+            return None
         elif t == pygame.JOYBUTTONDOWN:
             action = im.button_to_action(event.button)
         elif t == pygame.JOYHATMOTION:

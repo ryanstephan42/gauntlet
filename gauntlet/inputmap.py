@@ -70,23 +70,26 @@ class PlayerSlots:
         if not 1 <= max_players <= 4:
             raise ValueError("max_players must be 1-4")
         self.max_players = max_players
-        self.slots = []
+        self.slots = [None] * max_players
 
     def join(self, device):
         """Returns slot index for device, or None if full. Idempotent."""
         if device in self.slots:
             return self.slots.index(device)
-        if len(self.slots) >= self.max_players:
+        try:
+            slot = self.slots.index(None)
+        except ValueError:
             return None
-        self.slots.append(device)
-        return len(self.slots) - 1
+        self.slots[slot] = device
+        return slot
 
     def leave(self, device):
         if device in self.slots:
-            self.slots.remove(device)
+            self.slots[self.slots.index(device)] = None
 
     def slot_of(self, device):
-        return self.slots.index(device) if device in self.slots else None
+        slot = self.slots.index(device) if device in self.slots else None
+        return slot if slot is not None and self.slots[slot] is not None else None
 
     def handle(self, event):
         """Join on CONFIRM, leave on BACK; returns slot or None."""

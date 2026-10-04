@@ -16,7 +16,7 @@ class ShopScreen(Screen):
     def __init__(self, game, points):
         self.game = game
         self.shop = Shop(game.get("shop", []), points)
-        self.list = ListView(range(len(self.shop.items)), visible=7)
+        self.list = ListView(range(len(self.shop.items)), visible=5)
         self.toasts = ToastQueue(T.toast_seconds)
         self.finished = False
         self.start = False
