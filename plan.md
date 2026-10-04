@@ -15,7 +15,7 @@
 
 Note: UDP command formats (`WRITE_CORE_MEMORY` hex values, `READ_CORE_MEMORY` reply parsing) and readiness polling are untested against a real RetroArch; verify on first real run.
 
-## Phase 1: Input and UI framework (gamepad first)
+## Phase 1: Input and UI framework (gamepad first) — IN PROGRESS (mouse input and cover-art/card/button rendering remain)
 1. Input abstraction: keyboard/mouse/gamepad mapped to up/down/left/right/confirm/back/start; joystick hot-plug; "press A to join" controller-to-player-slot assignment (2-4 players).
 2. Screen/state manager (stack, transitions) and a central theme.
 3. Widgets: scrolling focusable lists, game card grid with cover art, buttons, modals, toasts, text wrapping, progress bar.
