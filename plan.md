@@ -5,13 +5,15 @@
 - pygame UI + RetroArch emulation.
 - Adding a game/challenge should need no hand-edited JSON.
 
-## Phase 0: Foundation and cleanup
-1. Split the single file into a `gauntlet/` package: `config`, `games`, `retroarch`, `referee`, `economy`, `ui/`, `wizard/`, `state`. Keep `gauntlet.py` as a thin entry point.
-2. Settings file (`settings.json`): RetroArch path, UDP host/port, ROM/core/config/assets dirs, player count, starting points, display options; first-run auto-detection.
-3. Versioned config schema + validation with clear load-time messages; bad files are skipped, not fatal.
-4. Fix data: correct `m64.json` (it is an SF2 copy) and the `configs/` path bug.
-5. Logging and error handling: `logging` module + log file; replace bare `except`.
-6. Tests (pytest: schema, economy, UDP client with fake server, referee) and README with data format reference.
+## Phase 0: Foundation and cleanup — MOSTLY DONE
+1. [~] Package split: done for `settings`, `schema`, `games`, `retroarch`, `economy`, `match`, `app`, `log`, `ui_shop`; `gauntlet.py` is a thin entry point. Remaining modules (`referee`, `ui/`, `wizard/`, `state`) belong to later phases.
+2. [x] Settings file (`settings.json`) with defaults and validation. [ ] Remaining: first-run RetroArch/core auto-detection beyond PATH lookup; actually use `core_dir`, `rom_dir`, `assets_dir`, `player_count`.
+3. [x] Versioned config schema + validation; bad files are skipped with logged reasons.
+4. [~] Fix data: [x] `configs/` path bug fixed; [x] `m64.json` no longer an SF2 copy. [ ] Remaining: real, verified Mario 64 referee/shop addresses and its own cover art.
+5. [~] Logging and error handling: [x] `logging` module + log file, bare `except` removed. [ ] Remaining: show config/match errors on screen (needs Phase 1 UI framework); surface skipped games to the user.
+6. [x] Tests (pytest: schema, shop, loader, settings, UDP client) and README. [ ] Remaining: referee tests (once the referee exists).
+
+Note: UDP command formats (`WRITE_CORE_MEMORY` hex values, `READ_CORE_MEMORY` reply parsing) and readiness polling are untested against a real RetroArch; verify on first real run.
 
 ## Phase 1: Input and UI framework (gamepad first)
 1. Input abstraction: keyboard/mouse/gamepad mapped to up/down/left/right/confirm/back/start; joystick hot-plug; "press A to join" controller-to-player-slot assignment (2-4 players).
