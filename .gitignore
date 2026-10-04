@@ -3,3 +3,6 @@ __pycache__/
 gauntlet.log
 settings.json
 .pytest_cache/
+.venv/
+state/
+*.tmp

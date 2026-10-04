@@ -2,37 +2,86 @@ import json
 import logging
 import math
 import os
-import shutil
-from dataclasses import dataclass, asdict, fields
+from dataclasses import asdict, dataclass, field, fields
+
+from .paths import default_state_dir, ensure_dir, resolve
 
 log = logging.getLogger("gauntlet.settings")
 
 SETTINGS_FILE = "settings.json"
 
 
-def _detect_retroarch():
-    return shutil.which("retroarch") or "/bin/retroarch"
-
-
 @dataclass
 class Settings:
+    # RetroArch: `retroarch_command` is an argv prefix (e.g. ["flatpak", "run", ...]);
+    # `retroarch_path` is a plain binary. Both empty = auto-detect.
     retroarch_path: str = ""
+    retroarch_command: list = field(default_factory=list)
     retroarch_host: str = "127.0.0.1"
     retroarch_port: int = 55355
+    # Directories (empty rom/core dir = auto-detect)
     data_dir: str = "gauntlet_data"
-    rom_dir: str = "roms"
-    core_dir: str = "/lib/libretro"
+    rom_dir: str = ""
+    core_dir: str = ""
     config_dir: str = "config"
     assets_dir: str = "assets"
+    state_dir: str = ""
+    # Players / economy
     player_count: int = 2
     starting_points: int = 10
+    win_points: int = 5
+    loss_points: int = 1
+    draw_points: int = 2
+    catchup_step: int = 5
+    catchup_max: int = 3
+    streak_bonus: int = 1
+    streak_max: int = 3
+    max_items: int = 3
+    wagers: bool = True
+    # Display / audio / input
     fullscreen: bool = False
     width: int = 1024
     height: int = 768
+    tv_mode: bool = False
+    sound: bool = True
+    volume: float = 0.6
+    split_keyboard: bool = False
+    key_bindings: dict = field(default_factory=dict)
+    button_bindings: dict = field(default_factory=dict)
+    # Match behaviour
     boot_timeout: float = 30.0
+    poll_interval: float = 0.2
+    close_delay: float = 3.0
+    assign_ports: bool = True
 
     def validate(self):
         return list(_range_errors(self).values())
+
+    # Resolved locations -------------------------------------------------
+    @property
+    def state_path(self):
+        return ensure_dir(resolve(self.state_dir) if self.state_dir else default_state_dir())
+
+    @property
+    def data_path(self):
+        return resolve(self.data_dir)
+
+    @property
+    def assets_path(self):
+        return resolve(self.assets_dir)
+
+    @property
+    def config_path(self):
+        return resolve(self.config_dir)
+
+    def sub_state(self, *parts):
+        return ensure_dir(os.path.join(self.state_path, *parts))
+
+
+_INT_MIN = {
+    "starting_points": 0, "win_points": 0, "loss_points": 0, "draw_points": 0,
+    "catchup_step": 1, "catchup_max": 0, "streak_bonus": 0, "streak_max": 0, "max_items": 0,
+}
 
 
 def _range_errors(settings):
@@ -41,14 +90,23 @@ def _range_errors(settings):
         errors["player_count"] = "player_count must be between 1 and 4"
     if not _is_int(settings.retroarch_port) or not 1 <= settings.retroarch_port <= 65535:
         errors["retroarch_port"] = "retroarch_port must be 1-65535"
-    if not _is_int(settings.starting_points) or settings.starting_points < 0:
-        errors["starting_points"] = "starting_points must be >= 0"
+    for name, lo in _INT_MIN.items():
+        value = getattr(settings, name)
+        if not _is_int(value) or value < lo:
+            errors[name] = f"{name} must be >= {lo}"
     if not _is_int(settings.width) or settings.width < 320:
         errors["width"] = "width must be at least 320"
     if not _is_int(settings.height) or settings.height < 240:
         errors["height"] = "height must be at least 240"
-    if not _is_positive_finite_number(settings.boot_timeout):
-        errors["boot_timeout"] = "boot_timeout must be a positive finite number"
+    for name in ("boot_timeout", "poll_interval"):
+        if not _is_positive_finite_number(getattr(settings, name)):
+            errors[name] = f"{name} must be a positive finite number"
+    if not _is_number(settings.close_delay) or not 0 <= settings.close_delay <= 60:
+        errors["close_delay"] = "close_delay must be 0-60"
+    if not _is_number(settings.volume) or not 0 <= settings.volume <= 1:
+        errors["volume"] = "volume must be 0.0-1.0"
+    if not all(isinstance(p, str) for p in settings.retroarch_command):
+        errors["retroarch_command"] = "retroarch_command must be a list of strings"
     return errors
 
 
@@ -56,13 +114,17 @@ def _is_int(value):
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _is_positive_finite_number(value):
+def _is_number(value):
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
     try:
-        return math.isfinite(value) and value > 0
+        return math.isfinite(value)
     except OverflowError:
         return False
+
+
+def _is_positive_finite_number(value):
+    return _is_number(value) and value > 0
 
 
 def load_settings(path=SETTINGS_FILE):
@@ -75,7 +137,7 @@ def load_settings(path=SETTINGS_FILE):
                 raw = json.load(f)
             if not isinstance(raw, dict):
                 raise ValueError("top level must be an object")
-            known = {f.name: f.type for f in fields(Settings)}
+            known = {f.name for f in fields(Settings)}
             for key, val in raw.items():
                 if key not in known:
                     log.warning("Unknown setting ignored: %s", key)
@@ -86,20 +148,21 @@ def load_settings(path=SETTINGS_FILE):
                 )
                 if isinstance(current, float) and isinstance(val, int) and not isinstance(val, bool):
                     ok = True
+                    val = float(val)
                 if not ok:
                     log.warning("Bad type for setting %s, using default", key)
                     continue
                 setattr(s, key, val)
         except (OSError, ValueError) as e:
             log.error("Failed to read %s: %s (using defaults)", path, e)
-    if not s.retroarch_path:
-        s.retroarch_path = _detect_retroarch()
-    for field, err in _range_errors(s).items():
+    for name, err in _range_errors(s).items():
         log.error("Invalid settings: %s (using default)", err)
-        setattr(s, field, getattr(defaults, field))
+        setattr(s, name, getattr(defaults, name))
     return s
 
 
 def save_settings(settings, path=SETTINGS_FILE):
-    with open(path, "w") as f:
+    tmp = f"{path}.tmp"
+    with open(tmp, "w") as f:
         json.dump(asdict(settings), f, indent=2)
+    os.replace(tmp, path)
