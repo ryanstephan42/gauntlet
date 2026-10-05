@@ -59,12 +59,20 @@ Single-player challenges currently run as turns. Instead, every player plays the
 6. UI: a match screen showing each player's live status, then results. Crash or close handling for one instance (forfeit that player and keep the race going for the rest).
 7. Tests: the fake RetroArch running N instances on separate ports, race win and timeout cases, and a live run of 2× SM64 on RetroDECK.
 
+## Phase 7: Match presentation (stage layout) — IN PROGRESS
+Make a match look like one screen: the games across the top and a live scoreboard below, so players can see their opponent's progress at a glance.
+1. Stage layout — DONE (commit `4d429b8`). On Hyprland/Sway every match floats the game windows into the top of the monitor (one wide window for versus/turns, side by side for a race). Gauntlet's own window becomes a bottom strip (`stage_hud_percent`, 25%) showing each player's live metric as a number and bar, their power-ups (buffs green, debuffs red), and the challenge name, clock and description in the middle. Gauntlet's window is restored afterwards (tiled, floating or fullscreen). Setting: `stage_layout`. Live-tested: MK2 versus (windowed and fullscreen) and a 2-player SMW race.
+2. Player-colour window borders — DONE (live-tested with a 2-player SMW race on Hyprland). Frame each player's game window in their colour so the windows are easy to tell apart. Hyprland only (`hyprctl dispatch setprop <win> border_size / active_border_color / inactive_border_color`, verified on 0.56.2); Sway has no per-window border colours. The window is shrunk by the border width so the border fills its tile. Shared windows (versus) get no player colour; in turns the window takes the current player's colour. Setting: `match_border` (px, default 6, 0 = off).
+3. Start countdown — TODO. Before the clock starts, show a 3-2-1 countdown with the game's first frame visible but paused, so nobody gets caught off guard. Pause each RetroArch once it is ready and its start state is loaded (network command `PAUSE_TOGGLE`, or `FRAMEADVANCE` to show a frame), show 3, 2, 1, GO in the scoreboard strip (and as a RetroArch OSD message), then unpause every instance at the same moment and start the referee clock. Applies to versus, turns (each turn) and races (all instances together). Needs a setting (`start_countdown` seconds, 0 = off), tests with the fake RetroArch (pause commands logged, clock starts after GO) and a live check.
+4. In-window emulation prototype — TODO. Measure whether Gauntlet can run the libretro cores itself and draw the games inside its own window: a minimal ctypes frontend with snes9x first (cores are in the RetroDECK flatpak at `files/retrodeck/components/retroarch/rd_extras/cores`), then report frame time, audio and input latency. N64 (mupen64plus_next, hardware GL) is the main risk; we would lose RetroArch shaders, hotkeys and RetroDECK settings.
+
 ## Delivery order
 1. M1: Phase 0 + Phase 1 input/screen manager.
 2. M2: Phase 2 + Phase 3 client and referee (playable 2-player loop).
 3. M3: Phase 4 wizard.
 4. M4: 3-4 player extras and Phase 5.
 5. M5: Phase 6 simultaneous play.
+6. M6: Phase 7 match presentation (stage layout, player borders, start countdown, in-window prototype).
 
 ## Risks / decisions
 - RAM addresses per game are the hardest part; presets + watcher are key.

@@ -114,6 +114,10 @@ def test_hyprland_backend():
     assert calls[-1][2].startswith("dispatch focuswindow address:0xfff ; dispatch fullscreenstate 0 0 ; "
                                    "dispatch setfloating address:0xfff")
     assert winplace.Hyprland(lambda *a, **k: None).area() is None
+    assert h.decorate("0xabc", (255, 77, 0), 6)
+    assert calls[-1] == ["hyprctl", "--batch", "dispatch setprop address:0xabc border_size 6 ; "
+                         "dispatch setprop address:0xabc active_border_color rgb(ff4d00) ; "
+                         "dispatch setprop address:0xabc inactive_border_color rgb(ff4d00)"]
 
 
 def test_sway_backend():
@@ -205,3 +209,30 @@ def test_backends_restore_tiled_or_floating_geometry():
     assert s.geometry(7) == {"floating": False, "rect": (0, 0, 9, 8)}
     s.restore(7, s.geometry(7))
     assert scalls[-1] == ["swaymsg", "[con_id=7] floating disable"]
+
+
+class BorderBackend(FakeBackend):
+    borders = True
+
+    def __init__(self, wins):
+        super().__init__(wins)
+        self.decorated = []
+
+    def decorate(self, wid, rgb, width):
+        self.decorated.append((wid, rgb, width))
+        return True
+
+
+def test_player_border_is_drawn_inside_the_tile():
+    tree = {10: {10, 11}, 20: {20}}
+    b = BorderBackend([("w11", 11), ("w20", 20)])
+    p = winplace.Placer(b, descendants=lambda pid: tree[pid])
+    p.add(10, (0, 0, 1000, 500), border=((255, 0, 0), 6))
+    p.add(20, (1000, 0, 1000, 500))
+    assert p.poll()
+    assert b.placed == [("w11", (6, 6, 988, 488)), ("w20", (1000, 0, 1000, 500))]
+    assert b.decorated == [("w11", (255, 0, 0), 6)]
+    plain = FakeBackend([("w11", 11)])  # no per-window borders (Sway): the tile is used as is
+    p = winplace.Placer(plain, descendants=lambda pid: tree[pid])
+    p.add(10, (0, 0, 1000, 500), border=((255, 0, 0), 6))
+    assert p.poll() and plain.placed == [("w11", (0, 0, 1000, 500))]

@@ -293,6 +293,32 @@ def test_race_stage_layout_games_on_top_scoreboard_below(tmp_path, monkeypatch):
     assert backend.calls[-1] == ("gauntlet", "restore", False)  # put back before the result shows
 
 
+class BorderPlacer(FakePlacer):
+    borders = True
+
+    def decorate(self, wid, rgb, width):
+        self.calls.append((wid, "border", rgb, width))
+        return True
+
+
+def test_race_windows_get_player_colour_borders(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [
+        {"events": [{"at": 1.5, "address": 0x10, "bytes": [5]}]}, {}]})
+    st.match_border = 10
+    backend = BorderPlacer()
+    players = [Participant("a", "A", pad_index=0, color=(255, 0, 0)),
+               Participant("b", "B", pad_index=1, color=(0, 0, 255))]
+    runner = MatchRunner(launcher, game, REACH, players, [], st, placer=backend)
+    backend.runner = runner
+    snap = run(runner)
+    assert snap["phase"] == "finished", snap
+    w1, w2 = (f"w{i.process.pid}" for i in runner.instances)
+    assert backend.placed[w1] == (1010, 30, 980, 730) and backend.placed[w2] == (2010, 30, 980, 730)
+    assert backend.placed["gauntlet"] == (1000, 770, 2000, 250)  # Gauntlet's strip has no border
+    borders = sorted(c for c in backend.calls if c[1] == "border")
+    assert borders == sorted([(w1, "border", (255, 0, 0), 10), (w2, "border", (0, 0, 255), 10)])
+
+
 def test_versus_stage_layout_places_the_shared_window(tmp_path, monkeypatch):
     st, launcher, game, logs = setup(tmp_path, monkeypatch, {
         "events": [{"at": 0.0, "address": 0x10, "bytes": [3]}, {"at": 0.0, "address": 0x11, "bytes": [3]},
@@ -300,8 +326,8 @@ def test_versus_stage_layout_places_the_shared_window(tmp_path, monkeypatch):
     st.stage_hud_percent = 30
     ch = {"id": "ko", "name": "KO", "mode": "versus", "min_time": 0, "time_limit": 30,
           "metric": {"address": {"1": "0x10", "2": "0x11"}}, "win": {"type": "eliminate", "value": 0}}
-    backend = FakePlacer()
-    players = [Participant("a", "A", 1, 0), Participant("b", "B", 2, 1)]
+    backend = BorderPlacer()  # one window shared by both players: no player colour
+    players = [Participant("a", "A", 1, 0, color=(255, 0, 0)), Participant("b", "B", 2, 1, color=(0, 0, 255))]
     runner = MatchRunner(launcher, game, ch, players, [], st, placer=backend)
     backend.runner = runner
     snap = run(runner)
@@ -311,6 +337,7 @@ def test_versus_stage_layout_places_the_shared_window(tmp_path, monkeypatch):
     cfg = read_cfg(os.path.join(st.sub_state("retroarch"), "match.cfg"))
     assert cfg["video_fullscreen"] == "false" and cfg["video_windowed_position_y"] == "20"
     assert backend.calls[-1] == ("gauntlet", "restore", False)
+    assert not [c for c in backend.calls if c[1] == "border"]
 
 
 def test_race_window_closed_counts_as_quit(tmp_path, monkeypatch):

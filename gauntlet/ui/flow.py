@@ -55,7 +55,7 @@ def make_participants(app, players):
     for i, (pid, pl) in enumerate(players):
         idx = app.input.device_index(pl.device)
         out.append(Participant(pid, pl.name, i + 1, idx if idx is not None else pl.pad_index,
-                               pl.device if pl.device in (KEYBOARD, KEYBOARD2) else None))
+                               pl.device if pl.device in (KEYBOARD, KEYBOARD2) else None, pl.rgb))
     return out
 
 

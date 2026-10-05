@@ -56,6 +56,7 @@ def _run(cmd, timeout=2.0):
 
 class Hyprland:
     name = "Hyprland"
+    borders = True  # per-window border colours (Sway only has global ones)
 
     def __init__(self, run=_run):
         self.run = run
@@ -117,6 +118,15 @@ class Hyprland:
 
     def focus(self, wid):
         return self.run(["hyprctl", "dispatch", "focuswindow", f"address:{wid}"]) is not None
+
+    def decorate(self, wid, rgb, width):
+        """Give a window a solid border of colour `rgb`, focused or not."""
+        sel = f"address:{wid}"
+        color = "rgb({:02x}{:02x}{:02x})".format(*rgb[:3])
+        cmds = [f"dispatch setprop {sel} border_size {int(width)}",
+                f"dispatch setprop {sel} active_border_color {color}",
+                f"dispatch setprop {sel} inactive_border_color {color}"]
+        return self.run(["hyprctl", "--batch", " ; ".join(cmds)]) is not None
 
 
 class Sway:
@@ -190,10 +200,11 @@ def detect(env=None, which=shutil.which):
 
 
 class _Job:
-    def __init__(self, pid, rect, own):
+    def __init__(self, pid, rect, own, border=None):
         self.pid = pid
         self.rect = tuple(int(v) for v in rect)
         self.own = own      # Gauntlet's own window: exact PID, never focused, restored on stop()
+        self.border = border  # (rgb, width): a coloured border drawn inside `rect`
         self.wid = None     # window last placed
         self.saved = None   # its geometry before we first moved it (own windows only)
 
@@ -219,10 +230,19 @@ class Placer:
         except (KeyError, TypeError, ValueError):
             return None
 
-    def add(self, pid, rect, own=False):
-        """Place `pid`'s window at `rect`; `own`: this process's window (exact PID, restored on stop)."""
+    def add(self, pid, rect, own=False, border=None):
+        """Place `pid`'s window at `rect`; `own`: this process's window (exact PID, restored on stop).
+        `border`: (rgb, width) to frame the window in a colour, where the backend supports it."""
         with self._lock:
-            self.jobs.append(_Job(pid, rect, own))
+            self.jobs.append(_Job(pid, rect, own, border))
+
+    def _frame(self, job):
+        """(rect to place at, border or None): a border is drawn outside the window, so shrink it."""
+        rgb, width = job.border or (None, 0)
+        if not rgb or width <= 0 or not getattr(self.backend, "borders", False):
+            return job.rect, None
+        x, y, w, h = job.rect
+        return (x + width, y + width, w - 2 * width, h - 2 * width), (rgb, width)
 
     def forget(self, pid):
         """Stop tracking a process (e.g. a RetroArch that closed between turns)."""
@@ -244,9 +264,12 @@ class Placer:
                     continue
                 if job.own and job.saved is None and hasattr(self.backend, "geometry"):
                     job.saved = self.backend.geometry(mine[-1]) or {}
-                if self.backend.place(mine[-1], job.rect):
+                rect, border = self._frame(job)
+                if self.backend.place(mine[-1], rect):
                     job.wid = mine[-1]
-                    log.info("Placed window of pid %s at %s (%s)", job.pid, job.rect, self.backend.name)
+                    if border:
+                        self.backend.decorate(mine[-1], *border)
+                    log.info("Placed window of pid %s at %s (%s)", job.pid, rect, self.backend.name)
             return self.placed
 
     def refresh(self, pause=0.2):

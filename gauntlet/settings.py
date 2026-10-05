@@ -67,6 +67,7 @@ class Settings:
     # Hyprland/Sway: games across the top, Gauntlet's live scoreboard strip below (needs race_place_windows)
     stage_layout: bool = True
     stage_hud_percent: int = 25  # scoreboard strip height, % of the screen
+    match_border: int = 6  # Hyprland: px of player-coloured border around each player's game window (0 = off)
 
     def validate(self):
         return list(_range_errors(self).values())
@@ -114,6 +115,8 @@ def _range_errors(settings):
             errors[name] = f"{name} must be >= {lo}"
     if not _is_int(settings.stage_hud_percent) or not 10 <= settings.stage_hud_percent <= 50:
         errors["stage_hud_percent"] = "stage_hud_percent must be between 10 and 50"
+    if not _is_int(settings.match_border) or not 0 <= settings.match_border <= 30:
+        errors["match_border"] = "match_border must be between 0 and 30"
     if not _is_int(settings.width) or settings.width < 320:
         errors["width"] = "width must be at least 320"
     if not _is_int(settings.height) or settings.height < 240:

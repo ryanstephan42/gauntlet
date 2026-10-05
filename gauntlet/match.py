@@ -43,6 +43,7 @@ class Participant:
     port: int = 1          # RetroArch port (1-based) in versus/coop
     pad_index: int = None  # joystick device index, if any
     keyboard: str = None   # "keyboard" / "keyboard2" / None
+    color: tuple = None    # player colour (rgb), e.g. for window borders
 
 
 @dataclass
@@ -372,7 +373,7 @@ class MatchRunner:
         except OSError as e:
             raise MatchError(f"cannot launch RetroArch: {e}")
         if self._placer and self._rects:
-            self._placer.add(self.process.pid, self._rects[0])
+            self._placer.add(self.process.pid, self._rects[0], border=self._border(turn_player))
             self._placer.start(timeout=self.settings.boot_timeout + 60)
         self._set(phase="waiting", message="Waiting for RetroArch...")
         if not self.client.wait_until_ready(self.settings.boot_timeout, interval=0.3,
@@ -475,6 +476,13 @@ class MatchRunner:
             return ref.stop(time.monotonic() - start, "forfeit" if self._forfeit else "closed early")
         return None
 
+    def _border(self, participant):
+        """(rgb, width) for a window that belongs to one player; None for a shared window."""
+        width = self.settings.match_border
+        if participant is None or not participant.color or width <= 0:
+            return None
+        return tuple(participant.color), width
+
     def _setup_windows(self, n):
         """Rectangles for `n` game windows (None = RetroArch decides). In the stage layout Gauntlet's own
         window is floated into the scoreboard strip under them."""
@@ -519,7 +527,7 @@ class MatchRunner:
             except OSError as e:
                 raise MatchError(f"cannot launch RetroArch: {e}")
             if placer:
-                placer.add(inst.process.pid, rects[i])
+                placer.add(inst.process.pid, rects[i], border=self._border(self.participants[i]))
         if placer:
             placer.start(timeout=self.settings.boot_timeout + 60)
         self._set(phase="waiting", message="Waiting for RetroArch...")

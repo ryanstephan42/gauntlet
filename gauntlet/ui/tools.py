@@ -209,6 +209,8 @@ class SettingsScreen(FormScreen):
               help="Hyprland/Sway: game windows share the top, Gauntlet shows live scores in a strip below."),
             F("stage_hud_percent", "Scoreboard height (% of screen)", "int", s.stage_hud_percent,
               lo=10, hi=50, step=5),
+            F("match_border", "Player-colour window border (px)", "int", s.match_border, lo=0, hi=30, step=2,
+              help="Hyprland: frame each player's game window in their colour (0 = off)."),
             F("race_input_driver", "Race: RetroArch input driver", "choice", s.race_input_driver,
               options=["", "udev", "x", "sdl2"], labels=["Auto", "udev", "x", "sdl2"],
               help="udev lets every window read the keyboard without focus (needs the 'input' group)."),
@@ -245,7 +247,8 @@ class SettingsScreen(FormScreen):
                     "catchup_max", "streak_bonus", "streak_max", "max_items", "wagers", "fullscreen",
                     "tv_mode", "sound", "split_keyboard", "preferred_install", "retroarch_port",
                     "assign_ports", "simultaneous_play", "race_mute_others", "race_input_driver",
-                    "race_place_windows", "stage_layout", "stage_hud_percent"):
+                    "race_place_windows", "stage_layout", "stage_hud_percent",
+                    "match_border"):
             setattr(s, key, v[key])
         s.width, s.height = (int(n) for n in v["resolution"].split("x"))
         s.volume = v["volume"] / 100
