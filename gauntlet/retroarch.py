@@ -66,6 +66,9 @@ class RetroArchClient:
         self.timeout = timeout
         self.chunk = chunk
         self.retries = retries
+        # Cores without a memory map (e.g. snes9x) reject *_CORE_MEMORY; *_CORE_RAM then
+        # addresses the system RAM (SNES: offset 0 = WRAM $7E0000). Detected on first use.
+        self.ram_api = False
         self._sock = None
         self._lock = threading.Lock()
 
@@ -151,9 +154,14 @@ class RetroArchClient:
         return bytes(out)
 
     def _read_chunk(self, address, length):
-        reply = self.send(f"READ_CORE_MEMORY {address:x} {length}")
+        cmd = "READ_CORE_RAM" if self.ram_api else "READ_CORE_MEMORY"
+        reply = self.send(f"{cmd} {address:x} {length}")
         if not reply:
             return None
+        if not self.ram_api and "no memory map" in reply:
+            log.info("core has no memory map; using READ/WRITE_CORE_RAM")
+            self.ram_api = True
+            return self._read_chunk(address, length)
         parts = reply.split()
         if len(parts) < 3 or parts[2] == "-1":
             log.debug("read %x failed: %s", address, reply)
@@ -171,7 +179,17 @@ class RetroArchClient:
             part = data[offset:offset + self.chunk]
             addr = address + offset
             hexbytes = " ".join(f"{b:02X}" for b in part)
-            reply = self.send(f"WRITE_CORE_MEMORY {addr:x} {hexbytes}")
+            if self.ram_api:
+                # WRITE_CORE_RAM never replies: verify by reading back.
+                self.send(f"WRITE_CORE_RAM {addr:x} {hexbytes}", expect_reply=False)
+                reply = None
+            else:
+                reply = self.send(f"WRITE_CORE_MEMORY {addr:x} {hexbytes}")
+                if reply and "no memory map" in reply:
+                    log.info("core has no memory map; using READ/WRITE_CORE_RAM")
+                    self.ram_api = True
+                    self.send(f"WRITE_CORE_RAM {addr:x} {hexbytes}", expect_reply=False)
+                    reply = None
             if reply:
                 fields = reply.split()
                 if len(fields) >= 3 and fields[2] != "-1":
@@ -284,40 +302,52 @@ class Launcher:
             errors.append(f"ROM not found: {meta.get('rom')}")
         return core, rom, errors
 
-    def base_config(self):
+    def base_config(self, port=None, folder=None):
+        """`port`/`folder` give a race instance its own command port and saves/states subfolder."""
         st = self.settings
+        sub = (folder,) if folder else ()
         return {
             "network_cmd_enable": True,
-            "network_cmd_port": st.retroarch_port,
+            "network_cmd_port": port or st.retroarch_port,
             "config_save_on_exit": False,
             "pause_nonactive": False,
             "quit_press_twice": False,
-            "savefile_directory": st.sub_state("saves"),
-            "savestate_directory": st.sub_state("states"),
+            "savefile_directory": st.sub_state("saves", *sub),
+            "savestate_directory": st.sub_state("states", *sub),
+            # flat, predictable state files: start states are staged as <content>.stateN
+            "sort_savestates_enable": False,
+            "sort_savestates_by_content_enable": False,
+            "savestate_auto_load": False,
+            "savestate_auto_save": False,
             "screenshot_directory": st.sub_state("screenshots"),
             "video_fullscreen": st.fullscreen,
         }
 
-    def write_config(self, name, extra=None):
-        cfg = self.base_config()
+    def write_config(self, name, extra=None, port=None, folder=None):
+        cfg = self.base_config(port, folder)
         cfg.update(extra or {})
+        reserved = ("network_cmd_enable", "network_cmd_port")
+        cfg.update({k: v for k, v in (self.settings.retroarch_overrides or {}).items() if k not in reserved})
         path = os.path.join(self.settings.sub_state("retroarch"), f"{name}.cfg")
         write_cfg(path, cfg)
         return path
 
-    def command(self, core, rom, cfg_path):
+    def command(self, core, rom, cfg_path, entry_slot=None):
         inst = self.install
-        return list(inst.command) + ["-L", inst.core_arg(core), rom, "--appendconfig", cfg_path]
+        cmd = list(inst.command) + ["-L", inst.core_arg(core), rom, "--appendconfig", cfg_path]
+        if entry_slot:
+            cmd += ["--entryslot", str(entry_slot)]
+        return cmd
 
-    def launch(self, core, rom, cfg_path):
-        cmd = self.command(core, rom, cfg_path)
+    def launch(self, core, rom, cfg_path, entry_slot=None, log_name="retroarch.log"):
+        cmd = self.command(core, rom, cfg_path, entry_slot)
         log.info("Launching: %s", cmd)
-        logfile = open(os.path.join(self.settings.sub_state("logs"), "retroarch.log"), "ab")
+        logfile = open(os.path.join(self.settings.sub_state("logs"), log_name), "ab")
         try:
             return subprocess.Popen(cmd, stdout=logfile, stderr=subprocess.STDOUT,
                                     stdin=subprocess.DEVNULL)
         finally:
             logfile.close()
 
-    def client(self, **kw):
-        return RetroArchClient(self.settings.retroarch_host, self.settings.retroarch_port, **kw)
+    def client(self, port=None, **kw):
+        return RetroArchClient(self.settings.retroarch_host, port or self.settings.retroarch_port, **kw)

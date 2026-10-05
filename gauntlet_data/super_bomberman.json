@@ -1,0 +1,116 @@
+{
+  "meta": {
+    "name": "Super Bomberman",
+    "system": "snes",
+    "core": "snes9x",
+    "players": 1,
+    "description": "Take turns in Normal Game: survive the longest or keep the most lives.",
+    "rom": "Super Bomberman (USA).sfc"
+  },
+  "memory": {
+    "layout": "linear",
+    "endian": "little"
+  },
+  "challenges": [
+    {
+      "id": "survival",
+      "name": "Survival",
+      "mode": "turns",
+      "description": "Play Normal Game until GAME OVER. Longest survivor wins (10 minute cap).",
+      "metric": {
+        "address": "0x0D7D",
+        "size": 1
+      },
+      "win": {
+        "type": "eliminate",
+        "value": 0
+      },
+      "time_limit": 600,
+      "on_timeout": "compare",
+      "min_time": 1,
+      "ready": {
+        "address": "0x0D7D",
+        "size": 1,
+        "op": "ge",
+        "value": 1
+      }
+    },
+    {
+      "id": "lives_left",
+      "name": "Lives Left",
+      "mode": "turns",
+      "description": "Three minutes of Normal Game each: most lives left at the buzzer wins.",
+      "metric": {
+        "address": "0x0D7D",
+        "size": 1
+      },
+      "win": {
+        "type": "compare",
+        "order": "high"
+      },
+      "time_limit": 180,
+      "on_timeout": "compare",
+      "min_time": 1,
+      "ready": {
+        "address": "0x0D7D",
+        "size": 1,
+        "op": "ge",
+        "value": 1
+      }
+    }
+  ],
+  "shop": [
+    {
+      "id": "extra_life",
+      "name": "1-Up",
+      "cost": 2,
+      "category": "buff",
+      "target": "self",
+      "limit": 2,
+      "description": "One extra life once the stage starts",
+      "actions": [
+        {
+          "type": "memory_write",
+          "address": "0x0D7D",
+          "size": 1,
+          "op": "add",
+          "value": 1,
+          "max": 9,
+          "when": {
+            "address": "0x0D7D",
+            "size": 1,
+            "op": "ge",
+            "value": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "life_tax",
+      "name": "Life Tax",
+      "cost": 3,
+      "category": "debuff",
+      "target": "opponent",
+      "limit": 1,
+      "description": "Opponent loses a life shortly after their stage starts (never their last)",
+      "actions": [
+        {
+          "type": "memory_write",
+          "address": "0x0D7D",
+          "size": 1,
+          "op": "sub",
+          "value": 1,
+          "min": 1,
+          "delay": 3,
+          "when": {
+            "address": "0x0D7D",
+            "size": 1,
+            "op": "ge",
+            "value": 2
+          }
+        }
+      ]
+    }
+  ],
+  "schema_version": 2
+}

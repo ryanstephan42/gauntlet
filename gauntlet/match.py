@@ -1,15 +1,21 @@
 """Match runner: launches RetroArch, applies purchased effects and referees the match.
 
 Runs in a background thread; the UI polls `snapshot()` and may call forfeit()/cancel()/end().
+Single-player ("turns") challenges either run one turn per player or, when every player has their
+own controller, as a race: one RetroArch window per player, all at once (see race_setup()).
 """
+import glob
 import logging
+import os
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
 
 from .actions import Effect, EffectContext, EffectScheduler, collect_config
 from .memory import Memory, compare, is_per_player, var_for
-from .referee import Referee, TurnReferee, Verdict, forfeit_verdict, rank_turns
+from .referee import RaceReferee, Referee, TurnReferee, Verdict, forfeit_verdict, rank_turns
+from . import startstate, winplace
 
 log = logging.getLogger("gauntlet.match")
 
@@ -21,6 +27,13 @@ class MatchError(Exception):
 # RetroArch keyboard binds for the second keyboard player (split keyboard mode).
 KEYBOARD2_RA = {"up": "i", "down": "k", "left": "j", "right": "l", "a": "u", "b": "o",
                 "start": "p", "select": "y"}
+# RetroArch hotkeys whose default key is one of the keyboard2 keys (pause = p, frame advance = k, ...)
+KEYBOARD2_HOTKEYS = ("input_pause_toggle", "input_frame_advance", "input_hold_fast_forward",
+                     "input_movie_record_toggle", "input_netplay_game_watch", "input_cheat_index_plus",
+                     "input_cheat_toggle")
+PAD_BUTTONS = ("up", "down", "left", "right", "a", "b", "x", "y", "l", "r", "l2", "r2", "l3", "r3",
+               "start", "select")
+NO_PAD = 15  # joypad index for keyboard players in a race window (no pad of theirs to listen to)
 
 
 @dataclass
@@ -97,11 +110,105 @@ def build_config(participants, purchases, settings, turn_player=None):
             if p.keyboard == "keyboard2":
                 for button, key in KEYBOARD2_RA.items():
                     extra[f"input_player{port}_{button}"] = key
+    if any(p.keyboard == "keyboard2" for p in participants):
+        extra.update({k: "nul" for k in KEYBOARD2_HOTKEYS})
     return extra
 
 
+@dataclass
+class RacePlan:
+    race: bool
+    input_driver: str = None  # retroarch input_driver for every window (None = leave as configured)
+    note: str = ""            # why not a race, or what the players must know
+
+
+def udev_keyboard_available():
+    """True if RetroArch's udev input driver could read the keyboard (Linux, user in the 'input' group)."""
+    if not sys.platform.startswith("linux"):
+        return False
+    return any(os.access(dev, os.R_OK) for dev in glob.glob("/dev/input/event*"))
+
+
+def race_setup(participants, settings, udev=None):
+    """Decide whether a single-player challenge runs as a race (one window per player, all at once)."""
+    if not settings.simultaneous_play:
+        return RacePlan(False, note="taking turns (simultaneous play is off)")
+    if len(participants) < 2:
+        return RacePlan(False)
+    devices = [p.keyboard or (("pad", p.pad_index) if p.pad_index is not None else None) for p in participants]
+    if None in devices or len(set(devices)) < len(devices):
+        return RacePlan(False, note="taking turns: players share a controller")
+    if settings.retroarch_port + len(participants) - 1 > 65535:
+        return RacePlan(False, note="taking turns: no free network ports")
+    keyboards = sum(1 for p in participants if p.keyboard)
+    if settings.race_input_driver:
+        return RacePlan(True, settings.race_input_driver)
+    if not keyboards:
+        return RacePlan(True)
+    if udev is None:
+        udev = udev_keyboard_available()
+    if udev:
+        return RacePlan(True, "udev")
+    if keyboards > 1:
+        return RacePlan(False, note="taking turns: two keyboard players need the udev input driver "
+                                    "(add yourself to the 'input' group)")
+    return RacePlan(True, note="keyboard player: keep your RetroArch window focused")
+
+
+def tile_rects(n, width, height, x=0, y=0):
+    """Window rectangles (x, y, w, h) tiling an area: side by side for 2, a grid for more."""
+    cols = 1 if n <= 1 else 2 if n <= 4 else 3
+    rows = -(-n // cols)
+    w, h = width // cols, height // rows
+    return [(x + (i % cols) * w, y + (i // cols) * h, w, h) for i in range(n)]
+
+
+def race_config(participants, purchases, settings, index, rect=None, input_driver=None):
+    """retroarch.cfg overrides for player `index`'s own window in a race."""
+    p = participants[index]
+    extra = build_config(participants, purchases, settings, turn_player=p.key)
+    # each window must only hear its own player: no keyboard binds for pad players, no pad for keyboards
+    for button in PAD_BUTTONS:
+        key = f"input_player1_{button}"
+        if p.keyboard == "keyboard2":
+            extra[key] = KEYBOARD2_RA.get(button, "nul")
+        elif p.keyboard != "keyboard":
+            extra[key] = "nul"
+    if p.keyboard:
+        extra["input_player1_joypad_index"] = NO_PAD
+    elif p.pad_index is not None:
+        extra["input_player1_joypad_index"] = p.pad_index
+    extra.update({"video_fullscreen": False, "video_windowed_fullscreen": False})
+    if rect:
+        x, y, w, h = rect
+        extra.update({"video_window_save_positions": True, "video_windowed_position_x": x,
+                      "video_windowed_position_y": y, "video_windowed_position_width": w,
+                      "video_windowed_position_height": h})
+    if index and settings.race_mute_others:
+        extra["audio_mute_enable"] = True
+    if input_driver:
+        extra["input_driver"] = input_driver
+    return extra
+
+
+@dataclass
+class Instance:
+    """One player's RetroArch window in a race."""
+    player: Participant
+    port: int
+    process: object = None
+    client: object = None
+    memory: object = None
+    ctx: object = None
+    sched: object = None
+    alive: bool = True
+
+
 class MatchRunner:
-    def __init__(self, launcher, game, challenge, participants, purchases=(), settings=None):
+    def __init__(self, launcher, game, challenge, participants, purchases=(), settings=None, race=None,
+                 screen=None, placer=None):
+        """`race`: a RacePlan (None = decide with race_setup()); `screen`: (w, h) for tiling race windows;
+        `placer`: a winplace backend for race windows (None = detect; False = leave them to RetroArch)."""
         self.launcher = launcher
         self.settings = settings or launcher.settings
         self.game = game
@@ -109,6 +216,13 @@ class MatchRunner:
         self.participants = list(participants)
         self.purchases = list(purchases)
         self.mode = challenge.get("mode", "manual")
+        if self.mode != "turns":
+            race = RacePlan(False)
+        self.race = race if race is not None else race_setup(self.participants, self.settings)
+        self.screen = screen or (1920, 1080)
+        self.instances = []
+        self._backend = placer
+        self._placer = None
         self._lock = threading.Lock()
         self._cancel = threading.Event()
         self._end = threading.Event()
@@ -120,7 +234,8 @@ class MatchRunner:
         self.error = None
         self.turn_results = []
         self._snap = {"phase": "idle", "message": "", "values": {}, "remaining": None,
-                      "elapsed": 0.0, "turn": None, "warnings": [], "verdict": None}
+                      "elapsed": 0.0, "turn": None, "warnings": [], "verdict": None,
+                      "race": self.race.race, "players": {}}
 
     # -- UI API -----------------------------------------------------------------
     def start(self):
@@ -132,6 +247,7 @@ class MatchRunner:
             snap = dict(self._snap)
             snap["values"] = dict(snap["values"])
             snap["warnings"] = list(snap["warnings"])
+            snap["players"] = {k: dict(v) for k, v in snap["players"].items()}
             return snap
 
     @property
@@ -188,7 +304,12 @@ class MatchRunner:
             raise MatchError(f"another RetroArch is already answering on port "
                              f"{self.settings.retroarch_port}; close it first")
         keys = [p.key for p in self.participants]
-        if self.mode == "turns":
+        if self.race.race:
+            self.verdict = self._run_race(core, rom)
+            self.turn_results = self._race_ref.results if self._race_ref else []
+            if self._forfeit is not None:
+                self.verdict = forfeit_verdict(keys, self._forfeit)
+        elif self.mode == "turns":
             for p in self.participants:
                 if self._cancel.is_set():
                     break
@@ -219,8 +340,9 @@ class MatchRunner:
         extra = build_config(self.participants, self.purchases, self.settings,
                              turn_player.key if turn_player else None)
         cfg = self.launcher.write_config("match", extra)
+        slot = self._stage_start_state(rom)
         try:
-            self.process = self.launcher.launch(core, rom, cfg)
+            self.process = self.launcher.launch(core, rom, cfg, entry_slot=slot)
         except OSError as e:
             raise MatchError(f"cannot launch RetroArch: {e}")
         self._set(phase="waiting", message="Waiting for RetroArch...")
@@ -235,6 +357,22 @@ class MatchRunner:
             return self._referee_loop(turn_player)
         finally:
             self._close()
+
+    def _stage_start_state(self, rom, states_dir=None):
+        """Copy the challenge's start state into place (fresh for every launch/turn). -> slot or None."""
+        path, name = startstate.find_start_state(self.settings, self.challenge)
+        if not name:
+            return None
+        if not path:
+            self._warn(f"Start state '{name}' not found - booting the game normally")
+            return None
+        try:
+            startstate.stage(path, states_dir or self.settings.sub_state("states"), rom)
+        except OSError as e:
+            self._warn(f"Could not use start state '{name}': {e}")
+            return None
+        log.info("Using start state %s", path)
+        return startstate.ENTRY_SLOT
 
     def _referee_loop(self, turn_player):
         mem_cfg = self.game.get("memory", {})
@@ -304,14 +442,167 @@ class MatchRunner:
             return ref.stop(time.monotonic() - start, "forfeit" if self._forfeit else "closed early")
         return None
 
+    # -- race: one window per player ---------------------------------------------------
+    _race_ref = None
+
+    def _run_race(self, core, rom):
+        n = len(self.participants)
+        base = self.settings.retroarch_port
+        self.instances = [Instance(p, base + i, client=self.launcher.client(port=base + i))
+                          for i, p in enumerate(self.participants)]
+        for inst in self.instances[1:]:
+            if inst.client.status() is not None:
+                raise MatchError(f"another RetroArch is already answering on port {inst.port}; close it first")
+        if self.race.note:
+            self._warn(self.race.note)
+        backend = self._backend
+        if backend is None:
+            backend = winplace.detect() if self.settings.race_place_windows else None
+        placer = self._placer = winplace.Placer(backend) if backend else None
+        area = placer.area() if placer else None
+        rects = tile_rects(n, area[2], area[3], area[0], area[1]) if area else tile_rects(n, *self.screen)
+        self._set(phase="launching", message=f"Launching {n} windows of {self.game['meta']['name']}")
+        for i, inst in enumerate(self.instances):
+            folder = f"p{i + 1}"
+            extra = race_config(self.participants, self.purchases, self.settings, i, rects[i],
+                                self.race.input_driver)
+            cfg = self.launcher.write_config(f"race_{folder}", extra, port=inst.port, folder=folder)
+            slot = self._stage_start_state(rom, self.settings.sub_state("states", folder))
+            try:
+                inst.process = self.launcher.launch(core, rom, cfg, entry_slot=slot,
+                                                    log_name=f"retroarch_{folder}.log")
+            except OSError as e:
+                raise MatchError(f"cannot launch RetroArch: {e}")
+            if placer:
+                placer.add(inst.process.pid, rects[i])
+        if placer:
+            placer.start(timeout=self.settings.boot_timeout + 60)
+        self._set(phase="waiting", message="Waiting for RetroArch...")
+        deadline = time.monotonic() + self.settings.boot_timeout
+        for i, inst in enumerate(self.instances):
+            if not inst.client.wait_until_ready(max(0.5, deadline - time.monotonic()), interval=0.3,
+                                                process=inst.process, cancel=self._cancel):
+                if self._cancel.is_set():
+                    return None
+                who = f"{inst.player.name}'s RetroArch (retroarch_p{i + 1}.log in the state folder)"
+                if inst.process.poll() is not None:
+                    raise MatchError(f"{who} exited during startup")
+                raise MatchError(f"{who} did not respond on port {inst.port}")
+        if placer:
+            placer.refresh()
+        try:
+            return self._race_loop()
+        finally:
+            self._close_race()
+
+    def _race_loop(self):
+        mem_cfg = self.game.get("memory", {})
+        defaults = {"endian": mem_cfg.get("endian", "little")}
+        names = {p.key: p.name for p in self.participants}
+        for inst in self.instances:
+            inst.memory = Memory(inst.client, mem_cfg.get("layout", "linear"))
+            inst.ctx = EffectContext(inst.client, inst.memory, defaults, names)
+            inst.sched = EffectScheduler(inst.ctx, plan_effects(self.game, self.challenge, self.participants,
+                                                                self.purchases, inst.player.key))
+        ch = self.challenge
+        ref = self._race_ref = RaceReferee(ch, [p.key for p in self.participants])
+        metric = ch.get("metric")
+        ready_spec = ch.get("ready")
+        start = time.monotonic()
+        failed_reads = 0
+        self._set(phase="playing", message="Race in progress")
+        while True:
+            now = time.monotonic() - start
+            if self._end.is_set() or self._cancel.is_set():
+                break
+            for inst in self.instances:
+                if inst.alive and inst.process.poll() is not None:
+                    inst.alive = False
+                    log.info("%s closed their RetroArch", inst.player.name)
+                    if metric:
+                        ref.drop(inst.player.key, now, "quit")
+            live = [i for i in self.instances if i.alive]
+            if not live:
+                break
+            for inst in live:
+                inst.sched.tick(now)
+                for err in inst.ctx.errors:
+                    self._warn(err)
+                inst.ctx.errors.clear()
+            verdict = ref.verdict
+            if metric and verdict is None:
+                values, ready = {}, {}
+                for inst in live:
+                    key = inst.player.key
+                    if ready_spec:
+                        rv = inst.memory.read(var_for(ready_spec, 1, defaults))
+                        ready[key] = rv is not None and compare(ready_spec.get("op", "eq"), rv,
+                                                                int(ready_spec["value"]))
+                    try:
+                        values[key] = inst.memory.read(var_for(metric, 1, defaults))
+                    except KeyError:
+                        values[key] = None
+                if all(v is None for v in values.values()):
+                    failed_reads += 1
+                    if failed_reads == 10:
+                        self._warn("Cannot read the referee address; check the game's challenge setup")
+                else:
+                    failed_reads = 0
+                verdict = ref.update(values, now, ready)
+                self._set(values=values, remaining=ref.remaining(now), elapsed=now,
+                          players=self._race_players(ref, now),
+                          message="Race in progress" if ref.started else "Waiting for the game to start")
+            else:
+                self._set(elapsed=now, players=self._race_players(ref, now) if metric else {})
+            if verdict is not None:
+                text = self._verdict_text(verdict, names)
+                for inst in live:
+                    try:
+                        inst.client.show_msg(text)
+                    except OSError:
+                        pass
+                    inst.sched.finish_all()
+                self._end.wait(self.settings.close_delay)
+                return verdict
+            self._end.wait(self.settings.poll_interval)
+        for inst in self.instances:
+            if inst.sched:
+                inst.sched.finish_all()
+        return ref.verdict
+
+    @staticmethod
+    def _race_players(ref, now):
+        elapsed = ref.elapsed(now)
+        out = {}
+        for key, r in ref.refs.items():
+            res = r.result
+            out[key] = {"status": ref.status(key), "time": elapsed[key],
+                        "reason": res.reason if res else "", "value": res.value if res else r.last_value}
+        return out
+
+    def _close_race(self):
+        for inst in self.instances:
+            if inst.process and inst.process.poll() is None:
+                inst.client.quit()
+        for inst in self.instances:
+            if inst.process:
+                try:
+                    inst.process.wait(5)
+                except Exception:
+                    pass
+        self._kill()
+
+    @staticmethod
+    def _verdict_text(result, names):
+        if result.draw:
+            return "Draw!"
+        if result.winners:
+            return " & ".join(names.get(k, "?") for k in result.winners) + " wins!"
+        return "Defeat!"
+
     def _announce(self, result, names):
         if isinstance(result, Verdict):
-            if result.draw:
-                text = "Draw!"
-            elif result.winners:
-                text = " & ".join(names.get(k, "?") for k in result.winners) + " wins!"
-            else:
-                text = "Defeat!"
+            text = self._verdict_text(result, names)
         else:
             text = f"{names.get(result.player, '?')}: {result.reason} ({result.time:.1f}s, {result.value})"
         try:
@@ -329,13 +620,16 @@ class MatchRunner:
         self._kill()
 
     def _kill(self):
-        p = self.process
-        if p and p.poll() is None:
-            p.terminate()
-            try:
-                p.wait(3)
-            except Exception:
-                p.kill()
+        if self._placer:
+            self._placer.stop()
+        for p in [self.process] + [i.process for i in self.instances]:
+            if p and p.poll() is None:
+                p.terminate()
+                try:
+                    p.wait(3)
+                except Exception:
+                    p.kill()
+                    p.wait(3)
 
 
 def play_match(game, active_items, settings, launcher=None):

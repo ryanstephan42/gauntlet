@@ -135,6 +135,24 @@ def test_pack_roundtrip(tmp_path):
     assert sorted(os.listdir(data)) == ["pack_game.json", "pack_game_2.json"]
 
 
+def test_pack_carries_start_states(tmp_path):
+    states = tmp_path / "s"
+    states.mkdir()
+    (states / "pg_m.state").write_bytes(b"STATE")
+    g = _game("Pack Game")
+    g["challenges"][0]["start_state"] = "pg_m.state"
+    zp = export_pack([g], str(tmp_path / "p.zip"), str(tmp_path / "a"), str(tmp_path / "c"),
+                     [str(tmp_path / "missing"), str(states)])
+    assert "start_states/pg_m.state" in zipfile.ZipFile(zp).namelist()
+    out = tmp_path / "s2"
+    imported, errors = import_pack(zp, str(tmp_path / "d2"), str(tmp_path / "a2"), str(tmp_path / "c2"), str(out))
+    assert imported == ["Pack Game"] and errors == []
+    assert (out / "pg_m.state").read_bytes() == b"STATE"
+    # without a destination folder the states are skipped (reported), games still import
+    imported, errors = import_pack(zp, str(tmp_path / "d3"), str(tmp_path / "a3"), str(tmp_path / "c3"))
+    assert imported == ["Pack Game"] and errors == ["skipped start_states/pg_m.state"]
+
+
 def test_pack_rejects_traversal_and_invalid(tmp_path):
     zp = tmp_path / "evil.zip"
     with zipfile.ZipFile(zp, "w") as z:

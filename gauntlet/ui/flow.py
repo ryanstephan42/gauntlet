@@ -6,7 +6,7 @@ from ..economy import PlayerCart, needs_target_pick, resolve_targets
 from ..games import get_challenge
 from ..inputmap import KEYBOARD, KEYBOARD2, Action, is_pad
 from ..layout import DESIGN_H, DESIGN_W
-from ..match import MatchRunner, Participant, Purchase
+from ..match import MatchRunner, Participant, Purchase, RacePlan, race_setup
 from ..playlist import Playlist
 from ..referee import Verdict
 from ..session import PLAYER_COLORS, Player, Session
@@ -17,7 +17,7 @@ from .fx import Confetti, CountUp, pulse
 log = logging.getLogger("gauntlet.ui.flow")
 
 CATEGORY_COLORS = {"buff": (60, 200, 110), "debuff": (232, 72, 85), "chaos": (200, 120, 255)}
-MODE_LABELS = {"versus": "Versus", "turns": "Take turns", "coop": "Co-op", "manual": "Manual"}
+MODE_LABELS = {"versus": "Versus", "turns": "Single-player", "coop": "Co-op", "manual": "Manual"}
 FORFEIT_HOLD = 1.5
 
 
@@ -46,6 +46,27 @@ def saved_session(app):
 
 def device_label(app, device):
     return app.input.pad_name(device)
+
+
+def make_participants(app, players):
+    """[(pid, Player)] -> [Participant] (port = position, joystick index, keyboard role)."""
+    out = []
+    for i, (pid, pl) in enumerate(players):
+        idx = app.input.device_index(pl.device)
+        out.append(Participant(pid, pl.name, i + 1, idx if idx is not None else pl.pad_index,
+                               pl.device if pl.device in (KEYBOARD, KEYBOARD2) else None))
+    return out
+
+
+def race_plan(app, players):
+    """How single-player challenges run for these [(pid, Player)]: a race or taking turns."""
+    return race_setup(make_participants(app, players), app.settings)
+
+
+def mode_label(challenge, plan=None):
+    if challenge.get("mode") == "turns" and plan is not None:
+        return "Race" if plan.race else "Take turns"
+    return MODE_LABELS.get(challenge.get("mode"), "?")
 
 
 def compat(app, game, challenge, n_players, shared_device=False):
@@ -193,9 +214,8 @@ class PlayerSetup(BaseScreen):
             return
         pid = max((p.id for p in self.players), default=-1) + 1
         color = self._free_color(-1)
-        known = [r["name"] for r in self.app.stats.leaderboard()]
         taken = {p.name for p in self.players}
-        name = next((n for n in known if n not in taken), None) if False else f"Player {len(self.players) + 1}"
+        name = f"Player {len(self.players) + 1}"
         while name in taken:
             name += "+"
         self.players.append(Player(pid, name, color, device, self.app.input.device_index(device)))
@@ -305,6 +325,7 @@ class GameSelect(BaseScreen):
         self.selected = []   # [(file, challenge id)]
         devices = [p.device for p in players]
         self.shared = len(set(devices)) < len(devices)
+        self.race = race_plan(app, list(enumerate(players)))
 
     @property
     def subtitle(self):
@@ -422,7 +443,7 @@ class GameSelect(BaseScreen):
             p.text(g["meta"]["name"], x + 12, y + 146, 22, bold=True, width=w - 24)
             p.text(f"{ch.get('name', '')}", x + 12, y + 174, 18, a.theme.text_dim, width=w - 24)
             cx = x + 12
-            cx += p.chip(MODE_LABELS.get(ch.get("mode"), "?"), cx, y + 202, (90, 90, 130), 15, (240, 240, 240)) + 6
+            cx += p.chip(mode_label(ch, self.race), cx, y + 202, (90, 90, 130), 15, (240, 240, 240)) + 6
             p.chip(f"{g['meta'].get('players', 2)}P", cx, y + 202, (70, 70, 90), 15, (240, 240, 240))
             if g["_file"] in sel_files:
                 order = sel_files.index(g["_file"]) + 1
@@ -532,6 +553,7 @@ class RoundIntro(PauseMixin, BaseScreen):
         self.rnd = None
         self.game = None
         self.challenge = None
+        self.race = None
 
     def on_enter(self):
         s = self.session
@@ -546,6 +568,7 @@ class RoundIntro(PauseMixin, BaseScreen):
         save_session(self.app, s)
         self.game = self.app.game_by_file(self.rnd.game)
         self.challenge = get_challenge(self.game, self.rnd.challenge) if self.game else None
+        self.race = race_plan(self.app, [(pid, s.player(pid)) for pid in self.rnd.players])
         self.title = self.rnd.label
         total = s.playlist.total_rounds
         self.subtitle = f"Round {self.rnd.number}" + (f" of {total}" if total else "")
@@ -585,7 +608,7 @@ class RoundIntro(PauseMixin, BaseScreen):
             p.cover(a.image_path(self.game), self.game["meta"]["name"], m + 20, 110, 380, 285)
             p.text(self.game["meta"]["name"], m + 440, 110, 34, bold=True, width=DESIGN_W - m * 2 - 460)
             ch = self.challenge
-            p.text(f"{ch.get('name', '')}  •  {MODE_LABELS.get(ch.get('mode'), '')}", m + 440, 156, 24,
+            p.text(f"{ch.get('name', '')}  •  {mode_label(ch, self.race)}", m + 440, 156, 24,
                    a.theme.accent)
             p.wrapped(ch.get("description") or self.game["meta"].get("description", ""), m + 440, 196,
                       DESIGN_W - m * 2 - 460, 22, max_lines=4)
@@ -607,8 +630,7 @@ class RoundIntro(PauseMixin, BaseScreen):
             p.text(f"{pl.wins}W {pl.losses}L" + (f"  🔥{pl.streak}" if pl.streak > 1 else ""), x + 14, y + 92,
                    18, a.theme.text_dim)
         if len(rnd.players) < len(s.players):
-            out = [s.player(q).name for q in s.players_ids() if q not in rnd.players] if hasattr(
-                s, "players_ids") else [q.name for q in s.players if q.id not in rnd.players]
+            out = [q.name for q in s.players if q.id not in rnd.players]
             p.text("Sitting out: " + ", ".join(out), m + 20, 570, 20, a.theme.text_dim)
 
 
@@ -769,7 +791,6 @@ class ShopScreen(PauseMixin, BaseScreen):
                 self.sound("start")
 
     def draw_body(self, p):
-        a = self.app
         m = p.margin
         n = len(self.pids)
         gap = 14
@@ -848,6 +869,8 @@ class PreMatch(BaseScreen):
         super().__init__(app)
         self.session, self.rnd, self.game, self.challenge, self.carts = session, rnd, game, challenge, carts
         self.subtitle = f"{game['meta']['name']} • {challenge.get('name', '')}"
+        self.race = (race_plan(app, [(pid, session.player(pid)) for pid in rnd.players])
+                     if challenge.get("mode") == "turns" else RacePlan(False))
 
     def on_enter(self):
         self.app.clear_health()
@@ -883,9 +906,13 @@ class PreMatch(BaseScreen):
         m = p.margin
         mode = self.challenge.get("mode")
         y = 100
-        if mode == "turns":
+        if self.race.race:
+            p.text("Race! Everyone plays in their own window at the same time - first to finish wins.",
+                   m + 20, y, 22, width=DESIGN_W - 2 * m - 40)
+        elif mode == "turns":
             order = ", ".join(self.session.player(pid).name for pid in self.rnd.players)
-            p.text(f"Take turns: {order}. Each turn uses controller port 1.", m + 20, y, 22)
+            p.text(f"Take turns: {order}. Each turn uses controller port 1.", m + 20, y, 22,
+                   width=DESIGN_W - 2 * m - 40)
         else:
             p.text(MODE_LABELS.get(mode, ""), m + 20, y, 22)
         y += 44
@@ -894,8 +921,8 @@ class PreMatch(BaseScreen):
             cart = self.carts[pid]
             p.panel(m + 20, y, DESIGN_W - 2 * m - 40, 84, border=pl.rgb)
             draw_player_chip(p, pl, m + 36, y + 10, 320)
-            port = 1 if mode == "turns" else i + 1
-            p.text(f"Port {port}: {device_label(a, pl.device)}", m + 380, y + 14, 20, a.theme.text_dim, width=520)
+            where = f"Window {i + 1}" if self.race.race else f"Port {1 if mode == 'turns' else i + 1}"
+            p.text(f"{where}: {device_label(a, pl.device)}", m + 380, y + 14, 20, a.theme.text_dim, width=520)
             p.text(f"{cart.remaining} pts left" + (f" • wager {cart.wager}" if cart.wager else ""),
                    DESIGN_W - m - 40, y + 14, 20, a.theme.accent, "right")
             items = []
@@ -908,6 +935,9 @@ class PreMatch(BaseScreen):
             p.wrapped("Cannot launch: " + "; ".join(self.errors), m + 20, y + 10, DESIGN_W - 2 * m - 40, 22,
                       a.theme.bad)
         else:
+            if self.race.note and mode == "turns":
+                p.text("Note: " + self.race.note, m + 20, y + 10, 20, a.theme.accent, width=DESIGN_W - 2 * m - 40)
+                y += 32
             p.wrapped("RetroArch takes over your controllers during the match. Hold Select+Start for "
                       f"{FORFEIT_HOLD:.1f}s to forfeit. Press Esc in this window for the match menu.",
                       m + 20, y + 10, DESIGN_W - 2 * m - 40, 20, a.theme.text_dim)
@@ -929,13 +959,7 @@ class MatchScreen(BaseScreen):
         self.max_seen = {}
 
     def participants(self):
-        out = []
-        for i, pid in enumerate(self.rnd.players):
-            pl = self.session.player(pid)
-            idx = self.app.input.device_index(pl.device)
-            out.append(Participant(pid, pl.name, i + 1, idx if idx is not None else pl.pad_index,
-                                   pl.device if pl.device in (KEYBOARD, KEYBOARD2) else None))
-        return out
+        return make_participants(self.app, [(pid, self.session.player(pid)) for pid in self.rnd.players])
 
     def purchases(self):
         items = {i.get("id"): i for i in self.game.get("shop", [])}
@@ -952,13 +976,15 @@ class MatchScreen(BaseScreen):
     def start_runner(self):
         self.done = False
         self.runner = MatchRunner(self.app.launcher, self.game, self.challenge, self.participants(),
-                                  self.purchases(), self.app.settings)
+                                  self.purchases(), self.app.settings, screen=self.app.desktop_size())
+        self.app.race_windowed(self.runner.race.race)
         self.runner.start()
 
     def on_exit(self):
         if self.runner and not self.runner.finished:
             self.runner.cancel()
             self.runner.join(8)
+        self.app.race_windowed(False)
         if self.session.pending and not self.done:
             self.session.abort_match()
             save_session(self.app, self.session)
@@ -974,7 +1000,8 @@ class MatchScreen(BaseScreen):
 
     def menu(self):
         mode = self.challenge.get("mode")
-        opts = ["Keep playing", "End turn early" if mode == "turns" else "End now & report result", "Forfeit...",
+        turn = mode == "turns" and not (self.runner and self.runner.race.race)
+        opts = ["Keep playing", "End turn early" if turn else "End now & report result", "Forfeit...",
                 "Cancel match (refund)"]
 
         def chosen(c):
@@ -1023,11 +1050,16 @@ class MatchScreen(BaseScreen):
             return
         self.runner.join(2)
         self.done = True
+        self.app.race_windowed(False)
+        self.app.request_focus()
         if phase == "finished" and self.runner.verdict:
             turns = [{"player": r.player, "success": r.success, "time": r.time, "value": r.value,
                       "reason": r.reason} for r in self.runner.turn_results]
+            extra = {"turns": turns} if turns else {}
+            if self.runner.race.race:
+                extra["race"] = True
             finish_match(self.app, self.session, self.rnd, self.game, self.challenge, self.runner.verdict,
-                         {"turns": turns} if turns else None)
+                         extra or None)
         elif phase == "no_verdict":
             self.app.manager.reset(ManualResult(self.app, self.session, self.rnd, self.game, self.challenge,
                                                 "No automatic result: who won?"))
@@ -1066,23 +1098,34 @@ class MatchScreen(BaseScreen):
                "idle": "Preparing..."}.get(phase, phase)
         if turn is not None and self.session.player(turn):
             big = f"{self.session.player(turn).name}'s turn"
+        elif s.get("race") and phase == "playing":
+            big = "RACE!"
         p.text(big, DESIGN_W / 2, y, 48, a.theme.accent, "center", bold=True)
         p.text(s.get("message", ""), DESIGN_W / 2, y + 66, 22, a.theme.text_dim, "center",
                width=DESIGN_W - 2 * m)
         rem = s.get("remaining")
         if rem is not None:
             mins, secs = divmod(max(0, int(rem)), 60)
-            p.text(f"{mins}:{secs:02d}", DESIGN_W - m - 20, 40, 36, a.theme.text, "right", bold=True)
+            p.text(f"{mins}:{secs:02d}", DESIGN_W - m - 20, y, 48, a.theme.text, "right", bold=True)
         win = self.challenge.get("win") or {}
         y = 230
         values = s.get("values", {})
+        racers = s.get("players", {})
         for pid in self.rnd.players:
             pl = self.session.player(pid)
             active = turn is None or turn == pid
             p.panel(m + 20, y, DESIGN_W - 2 * m - 40, 64, border=pl.rgb if active else None)
             draw_player_chip(p, pl, m + 36, y + 14, 260)
             v = values.get(pid)
-            if v is not None:
+            race = racers.get(pid)
+            if race and race["status"] not in ("racing", "waiting"):
+                label = {"finished": "FINISHED", "out": "OUT", "done": "TIME"}.get(race["status"], "")
+                p.text(f"{label}  {race['value'] if race['value'] is not None else '-'} in {race['time']:.1f}s"
+                       f" ({race['reason']})", m + 320, y + 18, 22,
+                       a.theme.good if race["status"] == "finished" else a.theme.text_dim, width=700)
+            elif race and race["status"] == "waiting" and v is None:
+                p.text("waiting for the game to start", m + 320, y + 18, 22, a.theme.text_dim, width=700)
+            elif v is not None:
                 if win.get("type") in ("reach",) and win.get("value"):
                     frac = v / max(1, win["value"])
                 else:

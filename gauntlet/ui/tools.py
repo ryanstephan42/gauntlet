@@ -19,16 +19,19 @@ from ..layout import DESIGN_H, DESIGN_W
 from ..memlab import FILTERS, MAX_REGION, RamSearch, Watch
 from ..memory import Memory, Var, parse_int, var_for
 from ..packs import export_pack, import_pack
-from ..presets import TEMPLATES, game_from_preset, generic_items, match_presets, normalize_title, template
+from ..presets import TEMPLATES, game_from_preset, generic_items, match_presets, template
+from ..match import Participant, build_config
 from ..retroarch import COMMANDS, Launcher
 from ..schema import validate_game
+from ..startstate import (clear_folder, find_start_state, newest_state, save_capture, search_dirs,
+                          state_filename)
 from ..stats import ACHIEVEMENTS
 from ..systems import SYSTEMS, guess_system
 from .base import BaseScreen, Field, FormScreen, MenuScreen
 
 log = logging.getLogger("gauntlet.ui.tools")
 
-MODE_LABELS = {"versus": "Versus (simultaneous)", "turns": "Take turns", "coop": "Co-op",
+MODE_LABELS = {"versus": "Versus (simultaneous)", "turns": "Single-player (race or turns)", "coop": "Co-op",
                "manual": "Manual (players report)"}
 WIN_LABELS = {"reach": "First to reach value", "eliminate": "Eliminate (drop to value)",
               "compare": "Best value when time is up", "equals": "Value equals", "bit_set": "Bit becomes set"}
@@ -195,6 +198,15 @@ class SettingsScreen(FormScreen):
             F("close_delay", "Close delay after a result (s)", "int", int(s.close_delay), lo=0, hi=30),
             F("assign_ports", "Map player controllers to ports", "bool", s.assign_ports,
               help="Player 1's pad drives port 1, player 2's pad port 2, ..."),
+            F("simultaneous_play", "Single-player challenges", "bool", s.simultaneous_play,
+              fmt=lambda v: "Race (all at once)" if v else "Take turns",
+              help="Race: one RetroArch window per player, first to finish ends it for everyone."),
+            F("race_mute_others", "Race: only player 1's window has sound", "bool", s.race_mute_others),
+            F("race_place_windows", "Race: float windows side by side (Hyprland/Sway)", "bool",
+              s.race_place_windows),
+            F("race_input_driver", "Race: RetroArch input driver", "choice", s.race_input_driver,
+              options=["", "udev", "x", "sdl2"], labels=["Auto", "udev", "x", "sdl2"],
+              help="udev lets every window read the keyboard without focus (needs the 'input' group)."),
             F("save", "Save & back", "button", on_press=self.close),
         ]
         super().__init__(app, fields)
@@ -227,7 +239,8 @@ class SettingsScreen(FormScreen):
         for key in ("starting_points", "win_points", "loss_points", "draw_points", "catchup_step",
                     "catchup_max", "streak_bonus", "streak_max", "max_items", "wagers", "fullscreen",
                     "tv_mode", "sound", "split_keyboard", "preferred_install", "retroarch_port",
-                    "assign_ports"):
+                    "assign_ports", "simultaneous_play", "race_mute_others", "race_input_driver",
+                    "race_place_windows"):
             setattr(s, key, v[key])
         s.width, s.height = (int(n) for n in v["resolution"].split("x"))
         s.volume = v["volume"] / 100
@@ -555,7 +568,7 @@ class GamesManager(MenuScreen):
         st = self.settings
         out = os.path.join(st.sub_state("exports"), f"{name}.zip")
         try:
-            export_pack(games, out, st.assets_path, st.config_path)
+            export_pack(games, out, st.assets_path, st.config_path, search_dirs(st))
         except OSError as e:
             self.app.alert(f"Export failed: {e}")
             return
@@ -565,7 +578,8 @@ class GamesManager(MenuScreen):
         def picked(path):
             st = self.settings
             try:
-                names, errors = import_pack(path, st.data_path, st.assets_path, st.config_path)
+                names, errors = import_pack(path, st.data_path, st.assets_path, st.config_path,
+                                            st.start_states_path)
             except (OSError, ValueError) as e:
                 self.app.alert(f"Could not import: {e}")
                 return
@@ -1051,7 +1065,8 @@ class ChallengeEditor(_SubEditor):
             F("name", "Name", "text", ch.get("name", ""), max_len=32),
             F("description", "Description", "text", ch.get("description", ""), max_len=80),
             F("mode", "Mode", "choice", mode, options=list(MODE_LABELS), labels=list(MODE_LABELS.values()),
-              help="Versus: everyone plays at once. Turns: one player at a time (great for 1-player games). "
+              help="Versus: everyone plays at once in one game. Single-player: a 1-player game; everyone races "
+                   "in their own window (or takes turns when controllers are shared). "
                    "Co-op: team goal. Manual: no RAM watching, players report the result."),
         ]
         if mode != "manual":
@@ -1104,8 +1119,57 @@ class ChallengeEditor(_SubEditor):
                       options=["eq", "ne", "ge", "gt", "le", "lt"], labels=["=", "!=", ">=", ">", "<=", "<"]),
                     F("ready_value", "Ready value", "int", int(ready.get("value", 0)), lo=-99999, hi=99999),
                 ]
-        fields.append(F("done", "Done", "button", on_press=self.done))
+        fields += [
+            F("h4", "Start", "info"),
+            F("start_state", "Start state", "button", on_press=self.start_state_menu,
+              fmt=lambda _v: self.state_label(),
+              help="Load a RetroArch save state when the match starts (e.g. character select with every "
+                   "player joined), so nobody sits through intros. Every turn/round restarts from it."),
+            F("done", "Done", "button", on_press=self.done),
+        ]
         return fields
+
+    def state_label(self):
+        name = self.ch.get("start_state")
+        if not name:
+            return "none - boot normally"
+        path, _name = find_start_state(self.settings, self.ch)
+        return name if path else f"{name} (missing!)"
+
+    def start_state_menu(self):
+        self.collect()
+        options = ["Capture from the game...", "Use a .state file..."]
+        if self.ch.get("start_state"):
+            options.append("Clear (boot normally)")
+        options.append("Cancel")
+        name = self.ch.get("start_state") or state_filename(self.wizard.game, self.ch)
+
+        def set_state(new):
+            self.ch["start_state"] = new
+            self.rebuild("start_state")
+            self.toast(f"Start state: {new}")
+
+        def picked(path):
+            try:
+                save_capture(path, self.settings, name)
+            except OSError as e:
+                self.app.alert(f"Could not copy the state: {e}")
+                return
+            set_state(name)
+
+        def chosen(c):
+            if c == options[0]:
+                self.push(StateCapture(self.app, self.wizard.game, name, set_state))
+            elif c == options[1]:
+                start = next((d for d in ("~/retrodeck/states", "~/.config/retroarch/states")
+                              if os.path.isdir(os.path.expanduser(d))), self.settings.sub_state("states"))
+                self.push(FileBrowser(self.app, start, picked, exts=STATE_EXTS,
+                                      title="Choose a RetroArch save state"))
+            elif c and c.startswith("Clear"):
+                self.ch.pop("start_state", None)
+                self.rebuild("start_state")
+        self.app.choose("Start matches from a save state instead of booting the game.", options, chosen,
+                        title="Start state")
 
     def collect(self):
         """Fields -> self.ch (keeps unknown keys such as per-player maps)."""
@@ -1372,6 +1436,28 @@ class ItemEditor(_SubEditor):
 
 
 # ------------------------------------------------------------------------------------ memory lab
+def stop_retroarch(process, client):
+    """Ask RetroArch to quit, then terminate/kill it if it lingers."""
+    if process and process.poll() is None:
+        try:
+            client.quit()
+            process.wait(4)
+        except Exception:
+            pass
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(3)
+            except Exception:
+                process.kill()
+                try:
+                    process.wait(2)
+                except Exception:
+                    pass
+    if client:
+        client.close()
+
+
 class MemoryLabSetup(MenuScreen):
     title = "Memory Lab"
     subtitle = "Find the RAM addresses of scores, lives and health"
@@ -1511,20 +1597,7 @@ class MemoryLab(FormScreen):
         self._shutdown_game()
 
     def _shutdown_game(self):
-        if self.process and self.process.poll() is None:
-            try:
-                self.client.quit()
-                self.process.wait(4)
-            except Exception:
-                pass
-            if self.process.poll() is None:
-                self.process.terminate()
-                try:
-                    self.process.wait(3)
-                except Exception:
-                    self.process.kill()
-        if self.client:
-            self.client.close()
+        stop_retroarch(self.process, self.client)
 
     def _worker(self):
         try:
@@ -1734,3 +1807,154 @@ class MemoryLab(FormScreen):
         if self.phase == "error":
             p.wrapped(self.message, p.margin + 20, DESIGN_H - p.margin - 130, DESIGN_W - 2 * p.margin - 40, 20,
                       th.bad, max_lines=2)
+
+
+STATE_EXTS = [".state", ".auto"] + [f".state{i}" for i in range(1, 10)]
+
+
+def capture_config(game, settings, folder):
+    """RetroArch config for capturing: every player can join, states land (flat) in `folder`."""
+    players = max(1, min(int(game["meta"].get("players") or 2), settings.player_count or 1))
+    parts = [Participant(i, f"P{i}", i, keyboard="keyboard2" if i == 2 and settings.split_keyboard else None)
+             for i in range(1, players + 1)]
+    extra = build_config(parts, [], settings)
+    extra.update({"savestate_directory": folder, "video_fullscreen": False})
+    return extra
+
+
+class StateCapture(BaseScreen):
+    """Launch the game, let the players reach the starting point and keep the newest save state."""
+    title = "Capture start state"
+
+    def __init__(self, app, game, name, on_saved):
+        super().__init__(app)
+        self.game, self.name, self.on_saved = game, name, on_saved
+        self.phase, self.message = "starting", "Starting..."
+        self.stop = threading.Event()
+        self.save_now = threading.Event()
+        self.thread = None
+        self.process = None
+        self.client = None
+        self.folder = self.settings.sub_state("capture")
+        self.captured = None   # path of the newest complete state
+        self.captured_at = None
+        self.kept = False
+
+    @property
+    def subtitle(self):
+        return self.game["meta"].get("name", "")
+
+    def hints(self):
+        return [(Action.CONFIRM, "Save state now"), (Action.START, "Keep it"), (Action.BACK, "Cancel")]
+
+    # -- lifecycle -----------------------------------------------------------------------------
+    def on_enter(self):
+        self.thread = threading.Thread(target=self._worker, daemon=True, name="capture")
+        self.thread.start()
+
+    def on_exit(self):
+        self.stop.set()
+        if self.thread:
+            self.thread.join(2.0)
+        stop_retroarch(self.process, self.client)
+
+    def _worker(self):
+        try:
+            launcher = self.app.launcher
+            self.client = launcher.client()
+            core, rom, errors = launcher.resolve(self.game)
+            if errors:
+                raise RuntimeError("; ".join(errors))
+            if self.client.is_ready():
+                raise RuntimeError("another RetroArch is already running on port "
+                                   f"{self.settings.retroarch_port} - close it first")
+            clear_folder(self.folder)
+            cfg = launcher.write_config("capture", capture_config(self.game, self.settings, self.folder))
+            self.message = "Launching RetroArch..."
+            self.process = launcher.launch(core, rom, cfg)
+            self.message = "Waiting for RetroArch to answer..."
+            if not self.client.wait_until_ready(self.settings.boot_timeout, 0.5, self.process, self.stop):
+                if not self.stop.is_set():
+                    raise RuntimeError("RetroArch did not answer (is network_cmd_enable on?)")
+                return
+            self.phase, self.message = "ready", "Play to the starting point, then save a state."
+            last = None
+            while not self.stop.is_set():
+                if self.save_now.is_set():
+                    self.save_now.clear()
+                    self.client.command("SAVE_STATE")
+                last = self._poll_state(last)
+                if self.process.poll() is not None:
+                    self._poll_state(last)
+                    self.phase = "closed"
+                    return
+                self.stop.wait(0.3)
+        except Exception as e:  # shown on screen
+            log.exception("state capture")
+            self.phase, self.message = "error", str(e)
+
+    def _poll_state(self, last):
+        """Accept a state once its size/mtime are stable across two polls (RetroArch writes async)."""
+        path = newest_state(self.folder)
+        try:
+            now = (path, os.path.getsize(path), os.path.getmtime(path)) if path else None
+        except OSError:
+            return None
+        if now and now == last and now[1] > 0 and (self.captured, self.captured_at) != (path, now[2]):
+            self.captured, self.captured_at = path, now[2]
+            self.message = "State captured at " + time.strftime("%H:%M:%S", time.localtime(now[2]))
+        return now
+
+    def update(self, dt):
+        super().update(dt)
+        if self.phase == "closed" and not self.kept:
+            self.app.request_focus()
+            if self.captured:
+                self.keep()
+            else:
+                self.phase, self.message = "error", "RetroArch closed before a state was saved"
+
+    def keep(self):
+        if not self.captured:
+            self.sound("error")
+            self.toast("Save a state first")
+            return
+        try:
+            save_capture(self.captured, self.settings, self.name)
+        except OSError as e:
+            self.app.alert(f"Could not save the state: {e}")
+            return
+        self.kept = True
+        self.sound("confirm")
+        self.pop()
+        self.on_saved(self.name)
+
+    def on_action(self, event):
+        if event.action is Action.CONFIRM:
+            if self.phase == "ready":
+                self.save_now.set()
+                self.message = "Saving state..."
+            else:
+                self.sound("error")
+            return
+        if event.action is Action.START:
+            self.keep()
+            return
+        super().on_action(event)
+
+    def draw_body(self, p):
+        th = self.app.theme
+        x, w = p.margin + 20, DESIGN_W - 2 * p.margin - 40
+        color = {"ready": th.good, "error": th.bad, "closed": th.accent}.get(self.phase, th.accent)
+        p.circle(DESIGN_W - p.margin - 16, 76, 8, color)
+        steps = [
+            "1. Play to where the challenge should start - e.g. character select with every player joined.",
+            "2. Save a state: RetroArch Quick Menu > Save State, your save-state hotkey, "
+            "or press Confirm here.",
+            "3. Close RetroArch (or press Start here) to keep the newest state.",
+        ]
+        y = 130
+        for line in steps:
+            y += p.wrapped(line, x, y, w, 24, th.text) + 14
+        p.text(f"Saved as: {self.name}", x, y + 10, 22, th.text_dim)
+        p.wrapped(self.message, x, y + 60, w, 26, color, max_lines=3)

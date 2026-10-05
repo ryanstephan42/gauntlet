@@ -20,12 +20,15 @@ class Settings:
     retroarch_command: list = field(default_factory=list)
     retroarch_host: str = "127.0.0.1"
     retroarch_port: int = 55355
+    # Extra retroarch.cfg keys for every launch, e.g. {"input_joypad_driver": "null"}
+    retroarch_overrides: dict = field(default_factory=dict)
     # Directories (empty rom/core dir = auto-detect)
     data_dir: str = "gauntlet_data"
     rom_dir: str = ""
     core_dir: str = ""
     config_dir: str = "config"
     assets_dir: str = "assets"
+    start_states_dir: str = "start_states"
     state_dir: str = ""
     # Players / economy
     player_count: int = 2
@@ -54,6 +57,13 @@ class Settings:
     poll_interval: float = 0.2
     close_delay: float = 3.0
     assign_ports: bool = True
+    # Single-player challenges: everyone plays at once, one RetroArch window each (False = take turns)
+    simultaneous_play: bool = True
+    # retroarch input_driver for race windows ("" = auto: "udev" on Linux when the keyboard is readable,
+    # so every window hears its own keys without focus)
+    race_input_driver: str = ""
+    race_mute_others: bool = True  # only player 1's window plays sound
+    race_place_windows: bool = True  # Hyprland/Sway: force race windows to float on their tile
 
     def validate(self):
         return list(_range_errors(self).values())
@@ -70,6 +80,10 @@ class Settings:
     @property
     def assets_path(self):
         return resolve(self.assets_dir)
+
+    @property
+    def start_states_path(self):
+        return resolve(self.start_states_dir)
 
     @property
     def config_path(self):
@@ -106,6 +120,9 @@ def _range_errors(settings):
         errors["close_delay"] = "close_delay must be 0-60"
     if not _is_number(settings.volume) or not 0 <= settings.volume <= 1:
         errors["volume"] = "volume must be 0.0-1.0"
+    if not all(isinstance(k, str) and isinstance(v, (str, int, float, bool))
+               for k, v in settings.retroarch_overrides.items()):
+        errors["retroarch_overrides"] = "retroarch_overrides must map names to strings/numbers/booleans"
     if not all(isinstance(p, str) for p in settings.retroarch_command):
         errors["retroarch_command"] = "retroarch_command must be a list of strings"
     return errors

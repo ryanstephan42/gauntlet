@@ -103,6 +103,27 @@ def test_client_status_and_chunked_read(client, fake):
     assert client.read_bytes(0x20000, 4) is None
 
 
+def test_client_falls_back_to_core_ram_without_memory_map():
+    ra = FakeRetroArch(port=0, ram_size=0x20000, memory_map=False)
+    ra.start_thread()
+    c = RetroArchClient("127.0.0.1", ra.port, timeout=0.3)
+    try:
+        ra.poke(0x0E00, [7, 8])
+        assert c.read_bytes(0x0E00, 2) == bytes([7, 8]) and c.ram_api
+        assert c.write_bytes(0x0E00, bytes([9])) == 1
+        assert ra.ram[0x0E00] == 9
+        assert any(cmd.startswith("WRITE_CORE_RAM e00 09") for cmd in ra.commands)
+        mem = Memory(c)
+        assert mem.write(Var(0x10, size=2), 0x1234) and mem.read(Var(0x10, size=2)) == 0x1234
+        # a write before any read also detects the fallback
+        c2 = RetroArchClient("127.0.0.1", ra.port, timeout=0.3)
+        assert c2.write_bytes(0x20, bytes([5])) == 1 and c2.ram_api and ra.ram[0x20] == 5
+        c2.close()
+    finally:
+        c.close()
+        ra.running = False
+
+
 def test_client_no_server_returns_none():
     c = RetroArchClient("127.0.0.1", free_port(), timeout=0.1)
     assert c.status() is None
@@ -317,6 +338,61 @@ def test_build_config_ports(tmp_path):
     assert cfg["input_max_users"] == 1 and "input_player2_a" not in cfg
 
 
+def test_retroarch_overrides_written_but_network_kept(tmp_path):
+    st = Settings(state_dir=str(tmp_path), retroarch_port=55999,
+                  retroarch_overrides={"input_joypad_driver": "null", "network_cmd_port": 1, "video_vsync": False})
+    launcher = Launcher(st, installs=[Install("Fake", ["true"])])
+    text = open(launcher.write_config("t", {"input_max_users": 2})).read()
+    assert 'input_joypad_driver = "null"' in text and 'video_vsync = "false"' in text
+    assert 'network_cmd_port = "55999"' in text and 'input_max_users = "2"' in text
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps({"retroarch_overrides": {"a": [1]}}))
+    from gauntlet.settings import load_settings
+    assert load_settings(str(p)).retroarch_overrides == {}
+
+
+def test_start_state_lookup_and_staging(tmp_path, monkeypatch):
+    from gauntlet import startstate
+    user, bundled = tmp_path / "user", tmp_path / "app" / "start_states"
+    user.mkdir()
+    bundled.mkdir(parents=True)
+    monkeypatch.setattr(startstate, "app_root", lambda: str(tmp_path / "app"))
+    st = Settings(state_dir=str(tmp_path / "state"), start_states_dir=str(user))
+    (bundled / "a.state").write_bytes(b"bundled")
+    assert startstate.find_start_state(st, {"start_state": "a.state"}) == (str(bundled / "a.state"), "a.state")
+    (user / "a.state").write_bytes(b"user")      # a capture overrides the bundled file
+    assert startstate.find_start_state(st, {"start_state": "a.state"})[0] == str(user / "a.state")
+    assert startstate.find_start_state(st, {"start_state": "nope.state"}) == (None, "nope.state")
+    assert startstate.find_start_state(st, {}) == (None, None)
+    assert startstate.find_start_state(st, {"start_state": "../a.state"}) == (None, None)
+    dest = startstate.stage(str(user / "a.state"), str(tmp_path / "ra"), "/roms/Game (USA).sfc")
+    assert os.path.basename(dest) == "Game (USA).state1" and open(dest, "rb").read() == b"user"
+    game = {"meta": {"name": "Mortal Kombat II"}}
+    assert startstate.state_filename(game, {"id": "ko"}) == "mortal_kombat_ii_ko.state"
+    folder = tmp_path / "cap"
+    folder.mkdir()
+    (folder / "x.state").write_bytes(b"1")
+    (folder / "x.state1.png").write_bytes(b"png")
+    os.utime(folder / "x.state", (1, 1))
+    (folder / "x.state2").write_bytes(b"2")
+    assert startstate.newest_state(str(folder)).endswith("x.state2")
+    startstate.clear_folder(str(folder))
+    assert startstate.newest_state(str(folder)) is None
+    for bad in ("a/b.state", "..", ""):
+        g = normalize_game({"schema_version": 2, "meta": {"name": "T", "core": "c", "rom": "r"},
+                            "challenges": [{"id": "m", "name": "M", "mode": "manual", "start_state": bad}]})
+        assert any("start_state" in e for e in validate_game(g)), bad
+
+
+def test_launcher_entry_slot_and_flat_states(tmp_path):
+    st = Settings(state_dir=str(tmp_path))
+    launcher = Launcher(st, installs=[Install("Fake", ["ra"])])
+    assert launcher.command("c.so", "g.sfc", "x.cfg", 1)[-2:] == ["--entryslot", "1"]
+    assert "--entryslot" not in launcher.command("c.so", "g.sfc", "x.cfg")
+    text = open(launcher.write_config("t")).read()
+    assert 'sort_savestates_by_content_enable = "false"' in text and 'savestate_auto_load = "false"' in text
+
+
 # ----------------------------------------------------------------------------- end to end
 def _e2e_setup(tmp_path, monkeypatch, script):
     cores = tmp_path / "cores"
@@ -419,3 +495,56 @@ def test_match_runner_port_in_use(tmp_path, monkeypatch, fake):
     runner.start()
     snap = _wait(runner)
     assert snap["phase"] == "error" and "already" in snap["message"]
+
+
+def test_mk2_preset_versus_on_core_ram(tmp_path, monkeypatch):
+    """The live-verified MK2 preset, against a fake core without a memory map (like snes9x)."""
+    from gauntlet.presets import game_from_preset, load_presets
+    script = {"ram_size": 0x4000, "boot_delay": 0.1, "memory_map": False,
+              "events": [{"at": 0.4, "address": 0x2EFC, "bytes": [0xA1]},
+                         {"at": 0.4, "address": 0x30AA, "bytes": [0xA1]},
+                         {"at": 6.0, "address": 0x2EFC, "bytes": [0]}]}
+    st, launcher, game = _e2e_setup(tmp_path, monkeypatch, script)
+    preset = next(p for p in load_presets() if p["id"] == "mk2_snes_usa")
+    game = normalize_game(game_from_preset(preset, core="fake", rom=game["meta"]["rom"]))
+    ch = game["challenges"][0]
+    jaw = next(i for i in game["shop"] if i["id"] == "glass_jaw")
+    runner = MatchRunner(launcher, game, ch, [Participant("a", "Ann", 1), Participant("b", "Bob", 2)],
+                         [Purchase(jaw, "a", ["b"])], st)
+    runner.start()
+    snap = _wait(runner, 30)
+    assert snap["phase"] == "finished"
+    assert runner.verdict.winners == ["b"] and runner.verdict.reason == "last one standing"
+    log = (tmp_path / "fake.log").read_text().upper()
+    assert "WRITE_CORE_RAM 30AA 50" in log
+    assert "READ_CORE_RAM 2EFC 1" in log
+
+
+def test_match_runner_loads_start_state_each_turn(tmp_path, monkeypatch):
+    """The state is staged as <rom>.state1 and RetroArch gets --entryslot 1, fresh for every turn."""
+    st, launcher, game = _e2e_setup(tmp_path, monkeypatch, {"ram_size": 0x1000, "boot_delay": 0.1})
+    states = tmp_path / "start_states"
+    states.mkdir()
+    (states / "fake_t.state").write_text(json.dumps([{"address": 0x10, "bytes": [5]}]))
+    st.start_states_dir = str(states)
+    ch = {"id": "t", "name": "T", "mode": "turns", "min_time": 0, "time_limit": None, "on_timeout": "compare",
+          "metric": {"address": "0x10"}, "win": {"type": "reach", "value": 5}, "start_state": "fake_t.state"}
+    runner = MatchRunner(launcher, game, ch, [Participant("a", "A"), Participant("b", "B")], [], st)
+    runner.start()
+    snap = _wait(runner)
+    assert snap["phase"] == "finished", snap
+    assert len(runner.turn_results) == 2       # both turns reached 5 straight from the state
+    log = (tmp_path / "fake.log").read_text()
+    assert log.count("ENTRY_STATE game.state1 ok") == 2
+    assert os.path.isfile(os.path.join(st.sub_state("states"), "game.state1"))
+
+
+def test_match_runner_missing_start_state_warns(tmp_path, monkeypatch):
+    st, launcher, game = _e2e_setup(tmp_path, monkeypatch, {"boot_delay": 0.1, "exit_at": 1.0})
+    st.start_states_dir = str(tmp_path / "none")
+    runner = MatchRunner(launcher, game, {"id": "m", "name": "M", "mode": "manual", "start_state": "gone.state"},
+                         [Participant("a", "A", 1)], [], st)
+    runner.start()
+    snap = _wait(runner)
+    assert any("gone.state" in w and "not found" in w for w in snap["warnings"])
+    assert "ENTRY_STATE" not in (tmp_path / "fake.log").read_text()
