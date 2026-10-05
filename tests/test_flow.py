@@ -132,7 +132,7 @@ def make_app(tmp_path, monkeypatch, script=None, game=GAME, write_game=True):
     monkeypatch.setenv("GAUNTLET_FAKE_SCRIPT", str(script_path))
     monkeypatch.setenv("GAUNTLET_FAKE_LOG", str(tmp_path / "fake.log"))
     monkeypatch.setenv("PYTHONPATH", REPO)
-    st = Settings(data_dir=str(data), state_dir=str(tmp_path / "state"), core_dir=str(cores),
+    st = Settings(data_dir=str(data), state_dir=str(tmp_path / "state"), start_states_dir=str(tmp_path / "ss"), core_dir=str(cores),
                   rom_dir=str(tmp_path), retroarch_port=free_port(), poll_interval=0.05, close_delay=0.1,
                   boot_timeout=15, sound=False, split_keyboard=True, starting_points=10)
     launcher = Launcher(st, installs=[Install("Fake", [sys.executable, "-m", "gauntlet.fakera"])])

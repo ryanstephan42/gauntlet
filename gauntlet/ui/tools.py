@@ -1439,6 +1439,10 @@ def stop_retroarch(process, client):
                 process.wait(3)
             except Exception:
                 process.kill()
+                try:
+                    process.wait(2)
+                except Exception:
+                    pass
     if client:
         client.close()
 
