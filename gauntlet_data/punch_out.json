@@ -1,0 +1,102 @@
+{
+  "meta": {
+    "name": "Mike Tyson's Punch-Out!!",
+    "system": "nes",
+    "core": "fceumm",
+    "players": 1,
+    "description": "Take turns against Bald Bull (Major Circuit title bout).",
+    "rom": "Mike Tyson's Punch-Out!! (Japan, USA).nes"
+  },
+  "memory": {
+    "layout": "linear",
+    "endian": "little"
+  },
+  "challenges": [
+    {
+      "id": "beat_bald_bull",
+      "name": "Beat Bald Bull",
+      "mode": "turns",
+      "description": "Press Start and knock Bald Bull out: fastest win takes it.",
+      "metric": {
+        "address": "0x0171",
+        "size": 1
+      },
+      "win": {
+        "type": "reach",
+        "value": 1
+      },
+      "time_limit": 480,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "start_state": "punchout_baldbull_prefight.state"
+    },
+    {
+      "id": "knockdowns",
+      "name": "Knockdown Derby",
+      "mode": "turns",
+      "description": "Two minutes with Bald Bull: most knock-downs in round 1 wins.",
+      "metric": {
+        "address": "0x03CA",
+        "size": 1
+      },
+      "win": {
+        "type": "compare",
+        "order": "high"
+      },
+      "time_limit": 130,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "start_state": "punchout_baldbull_prefight.state"
+    }
+  ],
+  "shop": [
+    {
+      "id": "second_wind",
+      "name": "Second Wind",
+      "cost": 2,
+      "category": "buff",
+      "target": "self",
+      "limit": 1,
+      "description": "Mac's health refills after 45 seconds",
+      "actions": [
+        {
+          "type": "memory_write",
+          "address": "0x0391",
+          "size": 1,
+          "op": "set",
+          "value": 96,
+          "delay": 45
+        }
+      ]
+    },
+    {
+      "id": "heart_attack",
+      "name": "Heart Attack",
+      "cost": 2,
+      "category": "debuff",
+      "target": "opponent",
+      "limit": 1,
+      "description": "Opponent's hearts drop to 3 after 20 seconds",
+      "actions": [
+        {
+          "type": "memory_write",
+          "address": "0x0323",
+          "size": 1,
+          "op": "set",
+          "value": 0,
+          "delay": 20
+        },
+        {
+          "type": "memory_write",
+          "address": "0x0324",
+          "size": 1,
+          "op": "set",
+          "value": 3,
+          "delay": 20
+        }
+      ]
+    }
+  ]
+}

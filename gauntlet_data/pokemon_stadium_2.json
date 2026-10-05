@@ -1,0 +1,53 @@
+{
+  "meta": {
+    "name": "Pokemon Stadium 2",
+    "system": "n64",
+    "core": "mupen64plus_next",
+    "players": 1,
+    "description": "Take turns in a Free Battle against the COM.",
+    "rom": "Pokemon Stadium 2 (USA).z64"
+  },
+  "memory": {
+    "layout": "swap32",
+    "endian": "big"
+  },
+  "challenges": [
+    {
+      "id": "free_battle",
+      "name": "Free Battle",
+      "mode": "turns",
+      "description": "Knock out all three COM Pokemon: fastest wins (least COM HP left if nobody does).",
+      "metric": {
+        "address": "0x14576E",
+        "size": 2,
+        "add": [
+          {
+            "address": "0x1457C6",
+            "size": 2
+          },
+          {
+            "address": "0x14581E",
+            "size": 2
+          }
+        ]
+      },
+      "win": {
+        "type": "equals",
+        "value": 0,
+        "order": "low"
+      },
+      "time_limit": 600,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x11F301",
+        "size": 1,
+        "op": "eq",
+        "value": 14
+      },
+      "start_state": "ps2_freebattle.state"
+    }
+  ],
+  "shop": []
+}

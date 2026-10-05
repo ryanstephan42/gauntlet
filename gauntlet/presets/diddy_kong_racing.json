@@ -1,0 +1,52 @@
+{
+  "id": "dkr_n64_usa_rev1",
+  "title": "Diddy Kong Racing",
+  "system": "n64",
+  "match": [
+    "diddy kong racing"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + mupen64plus_next, Diddy Kong Racing (USA) (Rev 1). The racer objects move between loads, so these challenges only work from the bundled start state: there P1's object is at $1E6E50 (pointer $1F05C0). +$247 place (HUD), +$22B laps (poked 2 -> HUD 3/3), +$270 finished flag and +$245 final place (both seen on all AI racers when they finished)",
+  "game": {
+    "meta": {
+      "name": "Diddy Kong Racing",
+      "system": "n64",
+      "core": "mupen64plus_next",
+      "players": 1,
+      "description": "Take turns racing Ancient Lake."
+    },
+    "memory": {
+      "layout": "swap32",
+      "endian": "big"
+    },
+    "challenges": [
+      {
+        "id": "ancient_lake",
+        "name": "Win Ancient Lake",
+        "mode": "turns",
+        "description": "Finish first at Ancient Lake: fastest win takes it, best place if nobody wins.",
+        "metric": {
+          "address": "0x1e7097",
+          "size": 1,
+          "add": [
+            {
+              "address": "0x1e70c0",
+              "size": 1,
+              "scale": -16
+            }
+          ]
+        },
+        "win": {
+          "type": "equals",
+          "value": -15,
+          "order": "low"
+        },
+        "time_limit": 240,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "start_state": "dkr_ancientlake_race.state"
+      }
+    ],
+    "shop": []
+  }
+}

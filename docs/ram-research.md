@@ -153,11 +153,11 @@ compare against 0x30.
 | `0x0398` | u8 | Opponent health (0x60 = full) | ✅ 96, writable |
 | `0x0323` / `0x0324` | u8 / u8 | Hearts tens / ones | ✅ |
 | `0x0342` | u8 | Stars (0-3) | 📝 |
-| `0x0170` / `0x0171` | u8 / u8 | Mac wins tens / ones | 📝 (mirror of losses) |
+| `0x0170` / `0x0171` | u8 / u8 | Mac wins tens / ones | ✅ 0 → 1 on a TKO of Bald Bull |
 | `0x0172` / `0x0173` | u8 / u8 | Mac losses tens / ones | ✅ 0 → 1 after a loss |
-| `0x0174` / `0x0175` | u8 / u8 | Mac KOs tens / ones | 📝 |
+| `0x0174` / `0x0175` | u8 / u8 | Mac KOs tens / ones | ✅ 0 → 1 on the same TKO |
 | `0x00C1` | u8 | Decision: 0xAA Mac wins, 0xAB opponent wins | 📝 |
-| `0x03CA` | u8 | Opponent knock-downs this round | 📝 |
+| `0x03CA` | u8 | Opponent knock-downs this round | ✅ 0 → 3 (TKO) |
 | `0x0302-0x0305` | u8 | Clock: minutes, tens of seconds, seconds | ✅ |
 | `0x03E8-0x03ED` | 6 × u8 | Points | 📝 |
 
@@ -197,7 +197,7 @@ Win = `0x0010` changes from 10 to 11 (Clinger Winger) without lives reaching 0.
 | `0x0DBF` | u8 | Coins | ✅ |
 | `0x0019` | u8 | Power-up: 0 small, 1 big, 2 cape, 3 fire | 📝 |
 | `0x0F31-0x0F33` | 3 × u8 | Level timer digits (hundreds, tens, ones) | ✅ 2,9,5 |
-| `0x1493` | u8 | End-of-level timer (non-zero once the goal tape/orb is touched, counts down) | ✅ |
+| `0x1493` | u8 | End-of-level timer (0xFF once the goal tape/orb is touched, counts down) | ✅ used as the win |
 | `0x0DD5` | u8 | Exit taken: 1 normal, 2 secret; 0x80 = died/exited without a goal | ✅ |
 | `0x141C` | u8 | Goal tape type (0 normal, 1 secret) | 📝 |
 | `0x13CE` | u8 | Midway point reached | 📝 |
@@ -206,7 +206,9 @@ Win = `0x0010` changes from 10 to 11 (Clinger Winger) without lives reaching 0.
 
 Verified sequence for a goal: the goal tape sets `0x1493 = 0xFF`, which counts down to 1, then `0x0100` goes to 0x0C
 and `0x0DD5` becomes 1. Exiting via a death (or Start+Select) leaves `0x0DD5 = 0x80` and lowers `0x0DBE`.
-Win = `0x0DD5` becomes 1 or 2 while `0x13BF` is the target level. A start state inside Yoshi's Island 1 is saved.
+Win = `0x0DD5` becomes 1 or 2 while `0x13BF` is the target level. The bundled preset uses `0x1493 ≥ 1` instead: it
+fires the moment the tape is touched (`0x0DD5` is only set seconds later). A start state inside Yoshi's Island 1 is
+saved (level start, 4 lives; an idle Mario is killed by the first Galoomba after ~4 s, which is normal).
 
 ### Street Fighter II – win a match  (RA 1192 / Turbo RA 648, 📝 RA only – ROM not in RoMM)
 
@@ -492,6 +494,7 @@ objects:
 | `0x1F05C0` | 8 × ptr | Racer object pointers (`0x80xxxxxx`), entry 0 = Player 1; objects are 0x790 apart | ✅ |
 | `0x1F05F0` | 8 × ptr | The same pointers sorted by current position (index 0 = leader) | ✅ |
 | `[ptr]+0x247` | u8 | Current place, 1-based | ✅ HUD "8TH" = 8 |
+| `[ptr]+0x22B` | u8 | Laps completed (0-based) | ✅ writing 2 shows "3/3" |
 | `[ptr]+0x270` | u8 | Race finished: 0 → 1 after the final line | 📝 seen on AIs |
 | `[ptr]+0x245` | u8 | Final finishing position (0 while racing) | 📝 seen on AIs |
 
@@ -527,7 +530,8 @@ results screen. A start state (Temple, 2P, First to 5, Rockets) is saved.
 
 **Win = while game state is a minigame ID, P1's reward-pending value goes 0 → > 0** (or P1's coins rise while game
 state is 0x71). Item minigames (e.g. Dorrie Dip) have no winner. A start state on the Etch 'n' Catch (2 v 2)
-explanation screen is saved.
+explanation screen is saved; press Start to begin. Teams in that state: slots 0+3 (red, Mario + Daisy) vs 1+2 (blue);
+with no input the red team won and slots 0 and 3 both went 0 → 10.
 
 ### Mario Kart 64 – win a race  (RA 10078, ✅ verified, ROM 350)
 
@@ -734,4 +738,6 @@ Diddy Kong Racing (racer objects), Luigi's Mansion (HUD Boo count) and Pokémon 
 interesting values behind pointers that change between loads. Gauntlet's schema can't express pointers yet. A
 `"pointer": {"address": ..., "size": 4, "mask": ...}` field on a memory spec (read pointer → mask → add `address`)
 would cover all three. Until then, presets can use the fixed alternatives listed above: Boo flags, battle outcome
-and trainer ID, DKR's sorted racer table compared with P1's pointer.
+and trainer ID, DKR's sorted racer table compared with P1's pointer. The bundled DKR preset instead reads P1's racer
+object at its fixed address in the bundled start state (`0x1E6E50`), which is stable because every match loads the
+same state.

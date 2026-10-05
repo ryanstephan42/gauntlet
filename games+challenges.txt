@@ -5,6 +5,7 @@ RESEARCH NOTES (added under each game). Full address tables are in docs/ram-rese
   [PARTIAL ✅] Core addresses verified; the challenge itself needs a later save state, or some parts are RA-notes only.
   [RA ONLY 📝] Addresses from RetroAchievements code notes, not checked live (ROM missing or needs a late save).
   "Needs state" = the challenge starts deep in the game; make a save state there before templating.
+  [IN ROTATION 🎮] Added to Gauntlet: gauntlet_data/<slug>.json + a preset; start states go in start_states/.
   Addresses are in Gauntlet's preset address space (see the table at the top of docs/ram-research.md).
 
 Arcade
@@ -49,6 +50,7 @@ Tetris - get 30 line clears
 
 punchout - beat bull
   [DONE ✅] RA 1489, RoMM 571. Writing opponent 0x0001 = 6 on the "PUSH START" screen loads the Bald Bull fight
+  [IN ROTATION 🎮] gauntlet_data/punch_out.json: Beat Bald Bull, Knockdown Derby.
            (verified), so no long save state is needed.
   Key RAM: opponent 0x0001 (6 = Bald Bull), round 0x0006, Mac HP 0x0391, opponent HP 0x0398,
            wins 0x0170/0x0171, losses 0x0172/0x0173, hearts 0x0323/0x0324.
@@ -69,6 +71,7 @@ battletoads - sewer race
 Snes
 Super mario world - beat level
   [DONE ✅] RA 228, RoMM 78. Start state inside Yoshi's Island 1 saved.
+  [IN ROTATION 🎮] gauntlet_data/smw.json: Beat Yoshi's Island 1, Coin Grab.
   Key RAM: game mode 0x0100 (0x14 in level), level 0x13BF, goal timer 0x1493, exit type 0x0DD5 (1 normal, 2 secret,
            0x80 died/quit), lives 0x0DBE, coins 0x0DBF, dragon coins 0x1420.
   Win: 0x0DD5 becomes 1 or 2 while 0x13BF is the target level.
@@ -86,6 +89,7 @@ SF2 - win match
 
 kirby dream course - beat course
   [DONE ✅] RA 986, RoMM 42. Start state at Course 1 hole 1 saved.
+  [IN ROTATION 🎮] gauntlet_data/kirbys_dream_course.json: Front Three, First Hole.
   Key RAM: course 0xD7BE, hole 0x6A5E (course*8+hole), strokes 0x6A64, lives 0xD7F4, hole clear 0xDA4A,
            screen 0x0084 (0x0500 results).
   Win: hole 8 of the course cleared (0xDA4A = 1 on hole course*8+7) or results screen.
@@ -94,6 +98,7 @@ kirby dream course - beat course
 
 super metriod
   [DONE ✅] RA 236, RoMM 80. No challenge given. Start state at the beginning of Ceres Station saved.
+  [IN ROTATION 🎮] gauntlet_data/super_metroid.json: Escape Ceres, Ceres Energy Saver.
   Key RAM: game state 0x0998 (8 = gameplay), room 0x079B, area 0x079F, energy 0x09C2, missiles 0x09C6,
            items 0x09A4, IGT 0x09DA-0x09E0, boss bits 0xD828-0xD82E (Kraid 0xD829 bit0, Phantoon 0xD82B bit0, ...).
   Proposed challenges: escape Ceres Station (area 6 → Crateria); get the Morph Ball (0x09A4 bit 2);
@@ -101,6 +106,7 @@ super metriod
 
 star fox
   [DONE ✅] RA 351, RoMM 66 (Rev 2; some RA addresses are 2 lower on Rev 2). Corneria start state saved.
+  [IN ROTATION 🎮] gauntlet_data/star_fox.json: Shield Keeper, Corneria Survivor, Clear Corneria.
   Key RAM (Rev 2): in game 0x00FD, shield 0x0396, lives 0x16EC, bombs 0x15AD, stage ID 0x1FF7 (u16),
            path 0x16DA, stage-in-path 0x16D8.
   Proposed challenges: clear Corneria (stage 0x16D8 advances); clear a stage without losing shield below 50%;
@@ -110,6 +116,7 @@ star fox
 PSX
 Crash bandicoot-beat level
   [DONE ✅] RA 10434, RoMM 622. Start states on the map and inside N. Sanity Beach saved.
+  [IN ROTATION 🎮] gauntlet_data/crash_bandicoot.json: Beat N. Sanity Beach, Box Breaker.
   Key RAM: in-stage/map 0x61994 (0 stage, 1 map), stage 0x619C5, boxes broken 0x61985, lives 0x618ED.
   Win: 0x61994 goes 0 → 1 while 0x619C5 is the target stage.
   Other challenges: break all boxes in a level (gem); beat Papu Papu (stage 5); finish without dying;
@@ -134,6 +141,7 @@ MGS - beat grey fox
 
 tekken 3 - win match
   [DONE ✅] RA 11259, RoMM 712. Verified in Arcade.
+  [IN ROTATION 🎮] gauntlet_data/tekken3.json: Arcade Stage 1, VS Match.
   Key RAM: screen 0x0AE224 (8 = fight), mode 0x097F40 (0 arcade, 1 VS), HP 0x0A961E / 0x0AAEAA,
            rounds won 0x0A926C / 0x0AAAF8, rounds to win 0x0A04C2.
   Win: P1 rounds won reaches 0x0A04C2 while screen = 8.
@@ -142,6 +150,7 @@ tekken 3 - win match
 
 spyro - beat level
   [DONE ✅] RA 11279, RoMM 706. Start state at Artisans saved (first dragon in ~3 s).
+  [IN ROTATION 🎮] gauntlet_data/spyro.json: Dragon Rescue, Gem Rush.
   Key RAM: game state 0x0757D8 (0 in game), level 0x0758B4, lives 0x07582C, gems 0x075860, dragons 0x075750,
            dragons per level 0x0772D8 + 4n, gems per level 0x077420 + 4n.
   Win: rescue every dragon in a level, or the boss dragon (Toasty 0x772E8 0 → 1).
@@ -151,6 +160,7 @@ spyro - beat level
 N64
 pokemon stadium 2 - beat other player
   [DONE ✅] RA 10258, RoMM 367. Free Battle start state saved.
+  [IN ROTATION 🎮] gauntlet_data/pokemon_stadium_2.json: Free Battle.
   Key RAM: game mode 0x09DE97 (0x10 Free Battle), battle state 0x11F301 (0x0E fighting, 0x2A over),
            P1 team HP 0x14528E/0x1452E6/0x14533E, P2 team HP 0x14576E/0x1457C6/0x14581E (u16).
   Win: state 0x2A with all P2 HP = 0 and some P1 HP > 0.
@@ -159,6 +169,7 @@ pokemon stadium 2 - beat other player
 
 Banjo Kazooie - first to get a Jiggy
   [DONE ✅] RA 10210, RoMM 305 (USA v1.0; RA notes need an offset). New-game state at Spiral Mountain saved.
+  [IN ROTATION 🎮] gauntlet_data/banjo_kazooie.json: First Jiggy.
   Key RAM: game state 0x37DAE4 (3 in game), map 0x37DAF5, total jiggies 0x3851E8 (u32, verified by poke),
            health 0x3851A0, lives 0x3851A8, notes in world 0x385180.
   Win: 0x3851E8 goes above its start value.
@@ -167,6 +178,7 @@ Banjo Kazooie - first to get a Jiggy
 
 Donkey kong 64 - first to get a banana
   [DONE ✅] RA 10075, RoMM 325. State at first control in DK's House saved.
+  [IN ROTATION 🎮] gauntlet_data/dk64.json: First Golden Banana, Banana Bunch.
   Key RAM: game state 0x755314 (6 in game), map 0x76A0A8, DK golden bananas 0x7FC990 + 2*level
            (Isles 0x7FC9A0 verified), DK coloured bananas 0x7FC956.
   Win: sum of GB counters rises (first GB is in Jungle Japes / DK Isles).
@@ -175,6 +187,7 @@ Donkey kong 64 - first to get a banana
 
 Diddy kong racing - win a race
   [DONE ✅] RA 10202 (notes don't match this ROM), RoMM 324 (USA Rev 1). Found by structure analysis.
+  [IN ROTATION 🎮] gauntlet_data/diddy_kong_racing.json: Win Ancient Lake.
            Ancient Lake race start state saved.
   Key RAM: racer pointer table 0x1F05C0 (entry 0 = P1), position-sorted table 0x1F05F0, [ptr]+0x247 place,
            [ptr]+0x270 finished, [ptr]+0x245 final position. Needs pointer support in presets.
@@ -184,6 +197,7 @@ Diddy kong racing - win a race
 
 golden eye - first to 5 kills multiplayer
   [DONE ✅] RA 10073, RoMM 338. Temple 2P "First to 5" state saved.
+  [IN ROTATION 🎮] gauntlet_data/goldeneye.json: First to 5, Three-Minute Frag.
   Key RAM: screen 0x02A8C0 (11 = MP match), player stats 0x079EF0 + 0x70*n, kills per victim +0x24 + 4*victim.
   Win: score = sum(kills[others]) - kills[self] reaches 5 (referee from RAM; poked scores don't end the match).
   Other challenges: first to 3 kills with pistols only; License to Kill mode; Facility / Dam single-player
@@ -191,6 +205,7 @@ golden eye - first to 5 kills multiplayer
 
 mario party 3 - win a minigame
   [DONE ✅] RA 10108, RoMM 351. Etch 'n' Catch explanation state saved.
+  [IN ROTATION 🎮] gauntlet_data/mario_party_3.json: Etch 'n' Catch.
   Key RAM: game state 0x0CE203 (minigame ID while playing, 0x71 coins awarded), minigame 0x0CD068,
            P1 reward pending 0x0D110E (stride 0x38), P1 coins 0x0D1112, stars 0x0D1116.
   Win: during a minigame, P1 reward-pending goes 0 → >0.
@@ -199,6 +214,7 @@ mario party 3 - win a minigame
 
 mario kart 64 - win a race
   [DONE ✅] RA 10078, RoMM 350. Luigi Raceway GP start state saved.
+  [IN ROTATION 🎮] gauntlet_data/mk64.json: Win Luigi Raceway, Finish Fastest.
   Key RAM: game state 0x0DC524 (4 racing), race status 0x0DC513 (5 finished), P1 place 0x0F6994 (0 = 1st),
            P1 laps 0x0F6998, P2 place 0x0F776C.
   Win: race status 5 with P1 place 0.
@@ -207,6 +223,7 @@ mario kart 64 - win a race
 
 smash 64 - win a match
   [DONE ✅] RA 10082, RoMM 386. Time match (Mario vs CPU Pikachu) state saved.
+  [IN ROTATION 🎮] gauntlet_data/ssb.json: Two-Minute Brawl, Plus Three.
   Key RAM: screen 0x0A4AD0 (22 match, 24 results), time remaining 0x0A4D1C, player structs 0x0A4D28 + 0x74*n
            (+0x02 kind, +0x03 char, +0x10 falls, +0x14 KOs, +0x18 + 4*victim KOs).
   Win: screen 24 and P1 (KOs - falls) beats everyone else.
@@ -256,6 +273,7 @@ soul caliber 2 - win match
 GBA
 metriod fusion
   [DONE ✅] RA 785, RoMM 166. No challenge given. Start state at first control (docking bay) saved.
+  [IN ROTATION 🎮] gauntlet_data/metroid_fusion.json: Untouchable, Reach Sector 1.
   Key RAM (native GBA addresses): mode 0x03000BDE (1 in game), area/room 0x0300002C/D, energy 0x03001310
            (verified by poke), missiles 0x03001314, IGT 0x03000138-B (h/m/s/f), boss event 0x030001D4
            (0x44 just defeated), B.O.X. HP 0x03000314, Core-X 0x03000244 (0x5D dead).

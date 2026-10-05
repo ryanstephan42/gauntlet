@@ -1,0 +1,102 @@
+{
+  "id": "goldeneye_n64_usa",
+  "title": "GoldenEye 007",
+  "system": "n64",
+  "match": [
+    "goldeneye 007",
+    "goldeneye"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + mupen64plus_next, GoldenEye 007 (USA). Screen $02A8C0 (11 multiplayer); player stats at $079EF0 + 0x70*n, kills of victim v at +0x24 + 4*v (pause-screen score = kills of others - suicides; P2 kills[P1] = 4 -> score 4)",
+  "game": {
+    "meta": {
+      "name": "GoldenEye 007",
+      "system": "n64",
+      "core": "mupen64plus_next",
+      "players": 2,
+      "description": "2-player multiplayer on Temple."
+    },
+    "memory": {
+      "layout": "swap32",
+      "endian": "big"
+    },
+    "challenges": [
+      {
+        "id": "first_to_5",
+        "name": "First to 5",
+        "mode": "versus",
+        "description": "Temple, rockets: first to 5 points (suicides cost a point).",
+        "metric": {
+          "address": {
+            "1": "0x079F18",
+            "2": "0x079F84"
+          },
+          "size": 4,
+          "add": [
+            {
+              "address": {
+                "1": "0x079F14",
+                "2": "0x079F88"
+              },
+              "size": 4,
+              "scale": -1
+            }
+          ]
+        },
+        "win": {
+          "type": "reach",
+          "value": 5
+        },
+        "time_limit": 600,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x02A8C0",
+          "size": 4,
+          "op": "eq",
+          "value": 11
+        },
+        "start_state": "ge_mp_temple_2p_first5.state"
+      },
+      {
+        "id": "three_minutes",
+        "name": "Three-Minute Frag",
+        "mode": "versus",
+        "description": "Temple, rockets: most points after 3 minutes.",
+        "metric": {
+          "address": {
+            "1": "0x079F18",
+            "2": "0x079F84"
+          },
+          "size": 4,
+          "add": [
+            {
+              "address": {
+                "1": "0x079F14",
+                "2": "0x079F88"
+              },
+              "size": 4,
+              "scale": -1
+            }
+          ]
+        },
+        "win": {
+          "type": "compare",
+          "order": "high"
+        },
+        "time_limit": 180,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x02A8C0",
+          "size": 4,
+          "op": "eq",
+          "value": 11
+        },
+        "start_state": "ge_mp_temple_2p_first5.state"
+      }
+    ],
+    "shop": []
+  }
+}

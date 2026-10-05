@@ -7,6 +7,7 @@ Schema v2:
                 win{type, value, order}, time_limit, on_timeout, best_of, min_time, ready{cond}, setup[actions], start_state}]
   shop:       [{id, name, cost, description, category, target, limit, actions[...]}]
 A "var" is {address (hex str or {"1": hex, "2": hex}), stride, size, signed, endian, mask, bit}.
+A metric may also have add: [{var..., scale}]; its value is then its own value + sum(scale * term).
 """
 import copy
 import re
@@ -218,6 +219,15 @@ def _validate_challenge(ch, where, errors):
     if mode == "manual":
         return
     _check_var(ch.get("metric"), f"{where}.metric", errors)
+    terms = (ch.get("metric") or {}).get("add") if isinstance(ch.get("metric"), dict) else None
+    if terms is not None:
+        if not isinstance(terms, list) or not terms:
+            errors.append(f"{where}.metric.add must be a non-empty list")
+        else:
+            for i, term in enumerate(terms):
+                _check_var(term, f"{where}.metric.add[{i}]", errors)
+                if isinstance(term, dict) and not _is_int(term.get("scale", 1)):
+                    errors.append(f"{where}.metric.add[{i}]: scale must be an integer")
     win = ch.get("win")
     if not isinstance(win, dict) or win.get("type") not in WIN_TYPES:
         errors.append(f"{where}: win.type must be one of {sorted(WIN_TYPES)}")

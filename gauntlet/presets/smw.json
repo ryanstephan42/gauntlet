@@ -1,0 +1,126 @@
+{
+  "id": "smw_snes_usa",
+  "title": "Super Mario World",
+  "system": "snes",
+  "match": [
+    "super mario world"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + snes9x, Super Mario World (USA). Game mode $0100 (0x14 in level); end-of-level timer $1493 (0xFF when the goal tape is touched, counts down); exit taken $0DD5 (1 normal, 2 secret, 0x80 died); coins $0DBF; lives $0DBE; power-up $0019 (0 small, 1 big, 2 cape, 3 fire)",
+  "game": {
+    "meta": {
+      "name": "Super Mario World",
+      "system": "snes",
+      "core": "snes9x",
+      "players": 1,
+      "description": "Take turns in Yoshi's Island 1."
+    },
+    "memory": {
+      "layout": "linear",
+      "endian": "little"
+    },
+    "challenges": [
+      {
+        "id": "yoshis_island_1",
+        "name": "Beat Yoshi's Island 1",
+        "mode": "turns",
+        "description": "Reach the goal tape of Yoshi's Island 1: fastest wins.",
+        "metric": {
+          "address": "0x1493",
+          "size": 1
+        },
+        "win": {
+          "type": "reach",
+          "value": 1
+        },
+        "time_limit": 300,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0100",
+          "size": 1,
+          "op": "eq",
+          "value": 20
+        },
+        "start_state": "smw_yi1.state"
+      },
+      {
+        "id": "coin_grab",
+        "name": "Coin Grab",
+        "mode": "turns",
+        "description": "90 seconds in Yoshi's Island 1: most coins wins.",
+        "metric": {
+          "address": "0x0DBF",
+          "size": 1
+        },
+        "win": {
+          "type": "compare",
+          "order": "high"
+        },
+        "time_limit": 90,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0100",
+          "size": 1,
+          "op": "eq",
+          "value": 20
+        },
+        "start_state": "smw_yi1.state"
+      }
+    ],
+    "shop": [
+      {
+        "id": "cape",
+        "name": "Cape Feather",
+        "cost": 2,
+        "category": "buff",
+        "target": "self",
+        "limit": 1,
+        "description": "Start the level with a cape",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x0019",
+            "size": 1,
+            "op": "set",
+            "value": 2,
+            "delay": 1,
+            "when": {
+              "address": "0x0100",
+              "size": 1,
+              "op": "eq",
+              "value": 20
+            }
+          }
+        ]
+      },
+      {
+        "id": "shrink",
+        "name": "Shrink Ray",
+        "cost": 2,
+        "category": "debuff",
+        "target": "opponent",
+        "limit": 1,
+        "description": "Opponent turns small after 15 seconds",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x0019",
+            "size": 1,
+            "op": "set",
+            "value": 0,
+            "delay": 15,
+            "when": {
+              "address": "0x0100",
+              "size": 1,
+              "op": "eq",
+              "value": 20
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

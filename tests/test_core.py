@@ -63,7 +63,18 @@ def test_load_games_skips_bad(tmp_path):
 def test_repo_games_valid():
     games, problems = load_games("gauntlet_data")
     assert problems == {}
-    assert len(games) == 4
+    assert len(games) == 21
+
+
+def test_presets_valid():
+    from gauntlet.presets import load_presets
+    from gauntlet.schema import validate_game
+    presets = load_presets()
+    assert len(presets) >= 21
+    for p in presets:
+        game = json.loads(json.dumps(p["game"]))
+        game["meta"]["rom"] = "game.rom"  # the add-game wizard fills this in
+        assert validate_game(game) == [], p["id"]
 
 
 def test_settings_defaults_and_bad_types(tmp_path):

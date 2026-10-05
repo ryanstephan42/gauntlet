@@ -95,8 +95,20 @@ automatically). You don't need to write them by hand:
 - **Manage Games** edits, duplicates, deletes, imports and exports configs as zip packs, and
   validates them.
 
-Bundled games: Super Mario 64, Mortal Kombat II, Super Bomberman and Super Mario Kart. Their
-addresses were verified live on RetroDECK.
+Bundled games (addresses verified live on RetroDECK; see `docs/ram-research.md`):
+- NES: Mike Tyson's Punch-Out!!
+- SNES: Super Mario World, Super Mario Kart, Super Metroid, Star Fox, Kirby's Dream Course,
+  Mortal Kombat II, Super Bomberman
+- N64: Super Mario 64, Mario Kart 64, Super Smash Bros., GoldenEye 007, Banjo-Kazooie,
+  Donkey Kong 64, Diddy Kong Racing, Mario Party 3, Pokémon Stadium 2
+- PlayStation: Crash Bandicoot, Spyro the Dragon, Tekken 3
+- GBA: Metroid Fusion
+
+Most of the newer challenges start from a save state (`start_state`). Those states contain game
+data, so they aren't in the repository. Put them in `start_states/`; files there named `*.state*`
+are ignored by git. If a state is missing, the game boots normally and Gauntlet logs a warning.
+Challenges that only make sense from their state (Diddy Kong Racing reads the racer object at
+the address it has in that state) need it.
 
 Outline of a game config:
 - `meta`: `name`, `system`, `core`, `rom` (required); `image`, `players`, `description`.
@@ -121,6 +133,9 @@ Outline of a game config:
     - `message`
 - A `var` is `{address, size, signed, endian, mask, bit, stride}`.
   - `address` is a hex string, or a per-player map such as `{"1": "0x2EFC", "2": "0x30AA"}`.
+- A metric can combine values with `add`: a list of vars, each with an optional integer `scale`
+  (default 1). The metric is its own value plus `scale × value` for each term. For example, a team's
+  HP total, or kills minus suicides with `"scale": -1`.
 
 ## Development
 ```

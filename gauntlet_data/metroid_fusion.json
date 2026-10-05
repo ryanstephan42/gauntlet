@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "name": "Metroid Fusion",
+    "system": "gba",
+    "core": "mgba",
+    "players": 1,
+    "description": "Take turns from the docking bay.",
+    "rom": "Metroid Fusion (USA).gba"
+  },
+  "memory": {
+    "layout": "linear",
+    "endian": "little"
+  },
+  "challenges": [
+    {
+      "id": "untouchable",
+      "name": "Untouchable",
+      "mode": "turns",
+      "description": "Explore without taking damage: whoever lasts longest wins.",
+      "metric": {
+        "address": "0x03001310",
+        "size": 2
+      },
+      "win": {
+        "type": "eliminate",
+        "value": 98
+      },
+      "time_limit": 300,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x03000BDE",
+        "size": 1,
+        "op": "eq",
+        "value": 1
+      },
+      "start_state": "fusion_start.state"
+    },
+    {
+      "id": "sector_1",
+      "name": "Reach Sector 1",
+      "mode": "turns",
+      "description": "From the docking bay to Sector 1 (SRX): fastest wins.",
+      "metric": {
+        "address": "0x0300002C",
+        "size": 1
+      },
+      "win": {
+        "type": "reach",
+        "value": 1
+      },
+      "time_limit": 600,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x03000BDE",
+        "size": 1,
+        "op": "eq",
+        "value": 1
+      },
+      "start_state": "fusion_start.state"
+    }
+  ],
+  "shop": []
+}

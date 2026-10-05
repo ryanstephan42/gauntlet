@@ -1,0 +1,139 @@
+{
+  "meta": {
+    "name": "Star Fox",
+    "system": "snes",
+    "core": "snes9x",
+    "players": 1,
+    "description": "Take turns flying Corneria.",
+    "rom": "Star Fox (USA) (Rev 2).sfc"
+  },
+  "memory": {
+    "layout": "linear",
+    "endian": "little"
+  },
+  "challenges": [
+    {
+      "id": "shield_keeper",
+      "name": "Shield Keeper",
+      "mode": "turns",
+      "description": "Two minutes of Corneria: most shield left wins.",
+      "metric": {
+        "address": "0x0396",
+        "size": 1
+      },
+      "win": {
+        "type": "compare",
+        "order": "high"
+      },
+      "time_limit": 120,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x00FD",
+        "size": 1,
+        "op": "eq",
+        "value": 1
+      },
+      "start_state": "sf_corneria.state"
+    },
+    {
+      "id": "corneria_survivor",
+      "name": "Corneria Survivor",
+      "mode": "turns",
+      "description": "Fly Corneria without losing a life: whoever lasts longest wins.",
+      "metric": {
+        "address": "0x16EC",
+        "size": 1
+      },
+      "win": {
+        "type": "eliminate",
+        "value": 2
+      },
+      "time_limit": 240,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x00FD",
+        "size": 1,
+        "op": "eq",
+        "value": 1
+      },
+      "start_state": "sf_corneria.state"
+    },
+    {
+      "id": "clear_corneria",
+      "name": "Clear Corneria",
+      "mode": "turns",
+      "description": "Beat the Corneria boss: fastest wins.",
+      "metric": {
+        "address": "0x16D8",
+        "size": 1
+      },
+      "win": {
+        "type": "reach",
+        "value": 1
+      },
+      "time_limit": 420,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x00FD",
+        "size": 1,
+        "op": "eq",
+        "value": 1
+      },
+      "start_state": "sf_corneria.state"
+    }
+  ],
+  "shop": [
+    {
+      "id": "shield_patch",
+      "name": "Shield Patch",
+      "cost": 2,
+      "category": "buff",
+      "target": "self",
+      "limit": 1,
+      "description": "Shield refilled after 45 seconds",
+      "actions": [
+        {
+          "type": "memory_write",
+          "address": "0x0396",
+          "size": 1,
+          "op": "set",
+          "value": 40,
+          "delay": 45,
+          "when": {
+            "address": "0x00FD",
+            "size": 1,
+            "op": "eq",
+            "value": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "no_bombs",
+      "name": "Bomb Bay Jam",
+      "cost": 1,
+      "category": "debuff",
+      "target": "opponent",
+      "limit": 1,
+      "description": "No Nova bombs",
+      "actions": [
+        {
+          "type": "memory_write",
+          "address": "0x15AD",
+          "size": 1,
+          "op": "set",
+          "value": 0,
+          "delay": 1,
+          "repeat": 1.0,
+          "duration": 120
+        }
+      ]
+    }
+  ]
+}

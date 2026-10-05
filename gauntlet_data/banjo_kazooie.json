@@ -1,0 +1,69 @@
+{
+  "meta": {
+    "name": "Banjo-Kazooie",
+    "system": "n64",
+    "core": "mupen64plus_next",
+    "players": 1,
+    "description": "Take turns racing to the first Jiggy.",
+    "rom": "Banjo-Kazooie (USA).z64"
+  },
+  "memory": {
+    "layout": "swap32",
+    "endian": "big"
+  },
+  "challenges": [
+    {
+      "id": "first_jiggy",
+      "name": "First Jiggy",
+      "mode": "turns",
+      "description": "From outside Banjo's house: first Jiggy, fastest wins.",
+      "metric": {
+        "address": "0x3851E8",
+        "size": 4
+      },
+      "win": {
+        "type": "reach",
+        "value": 1
+      },
+      "time_limit": 360,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x37DAE4",
+        "size": 4,
+        "op": "eq",
+        "value": 3
+      },
+      "start_state": "banjo_spiral_start.state"
+    }
+  ],
+  "shop": [
+    {
+      "id": "honeycomb",
+      "name": "Extra Honeycomb",
+      "cost": 1,
+      "category": "buff",
+      "target": "self",
+      "limit": 1,
+      "description": "Health refilled every 20 seconds",
+      "actions": [
+        {
+          "type": "memory_write",
+          "address": "0x3851A0",
+          "size": 4,
+          "op": "set",
+          "value": 5,
+          "repeat": 20,
+          "duration": 360,
+          "when": {
+            "address": "0x37DAE4",
+            "size": 4,
+            "op": "eq",
+            "value": 3
+          }
+        }
+      ]
+    }
+  ]
+}

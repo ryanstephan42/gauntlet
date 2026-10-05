@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "name": "Donkey Kong 64",
+    "system": "n64",
+    "core": "mupen64plus_next",
+    "players": 1,
+    "description": "Take turns racing to the first Golden Banana.",
+    "rom": "Donkey Kong 64 (USA).z64"
+  },
+  "memory": {
+    "layout": "swap32",
+    "endian": "big"
+  },
+  "challenges": [
+    {
+      "id": "first_banana",
+      "name": "First Golden Banana",
+      "mode": "turns",
+      "description": "From DK's House: first Golden Banana (Isles or Japes), fastest wins.",
+      "metric": {
+        "address": "0x7FC990",
+        "size": 2,
+        "add": [
+          {
+            "address": "0x7FC9A0",
+            "size": 2
+          }
+        ]
+      },
+      "win": {
+        "type": "reach",
+        "value": 1
+      },
+      "time_limit": 900,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x755314",
+        "size": 1,
+        "op": "eq",
+        "value": 6
+      },
+      "start_state": "dk64_house_start.state"
+    },
+    {
+      "id": "banana_bunch",
+      "name": "Banana Bunch",
+      "mode": "turns",
+      "description": "Three minutes: most yellow bananas wins.",
+      "metric": {
+        "address": "0x7FC956",
+        "size": 2
+      },
+      "win": {
+        "type": "compare",
+        "order": "high"
+      },
+      "time_limit": 180,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x755314",
+        "size": 1,
+        "op": "eq",
+        "value": 6
+      },
+      "start_state": "dk64_house_start.state"
+    }
+  ],
+  "shop": []
+}

@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "name": "Diddy Kong Racing",
+    "system": "n64",
+    "core": "mupen64plus_next",
+    "players": 1,
+    "description": "Take turns racing Ancient Lake.",
+    "rom": "Diddy Kong Racing (USA) (En,Fr) (Rev 1).z64"
+  },
+  "memory": {
+    "layout": "swap32",
+    "endian": "big"
+  },
+  "challenges": [
+    {
+      "id": "ancient_lake",
+      "name": "Win Ancient Lake",
+      "mode": "turns",
+      "description": "Finish first at Ancient Lake: fastest win takes it, best place if nobody wins.",
+      "metric": {
+        "address": "0x1e7097",
+        "size": 1,
+        "add": [
+          {
+            "address": "0x1e70c0",
+            "size": 1,
+            "scale": -16
+          }
+        ]
+      },
+      "win": {
+        "type": "equals",
+        "value": -15,
+        "order": "low"
+      },
+      "time_limit": 240,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "start_state": "dkr_ancientlake_race.state"
+    }
+  ],
+  "shop": []
+}

@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "name": "Kirby's Dream Course",
+    "system": "snes",
+    "core": "snes9x",
+    "players": 1,
+    "description": "Take turns on Course 1.",
+    "rom": "Kirby's Dream Course (USA).sfc"
+  },
+  "memory": {
+    "layout": "linear",
+    "endian": "little"
+  },
+  "challenges": [
+    {
+      "id": "front_three",
+      "name": "Front Three",
+      "mode": "turns",
+      "description": "Sink holes 1-3 of Course 1: fastest wins.",
+      "metric": {
+        "address": "0x6A5E",
+        "size": 1
+      },
+      "win": {
+        "type": "reach",
+        "value": 3
+      },
+      "time_limit": 420,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x0084",
+        "size": 2,
+        "op": "eq",
+        "value": 1024
+      },
+      "start_state": "kdc_c1h1.state"
+    },
+    {
+      "id": "first_hole",
+      "name": "First Hole",
+      "mode": "turns",
+      "description": "Sink hole 1-1: fastest wins.",
+      "metric": {
+        "address": "0x6A5E",
+        "size": 1
+      },
+      "win": {
+        "type": "reach",
+        "value": 1
+      },
+      "time_limit": 180,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x0084",
+        "size": 2,
+        "op": "eq",
+        "value": 1024
+      },
+      "start_state": "kdc_c1h1.state"
+    }
+  ],
+  "shop": [
+    {
+      "id": "tomato",
+      "name": "Maxim Tomato",
+      "cost": 1,
+      "category": "buff",
+      "target": "self",
+      "limit": 1,
+      "description": "Tomatoes refilled to 6",
+      "actions": [
+        {
+          "type": "memory_write",
+          "address": "0xD7F0",
+          "size": 1,
+          "op": "set",
+          "value": 6,
+          "delay": 1
+        }
+      ]
+    }
+  ]
+}

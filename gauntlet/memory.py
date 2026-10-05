@@ -138,6 +138,21 @@ def var_for(spec, port=None, defaults=None):
     return Var.from_spec(spec, address=address, defaults=defaults)
 
 
+def read_metric(memory, spec, port=None, defaults=None):
+    """Read a metric: its own value plus each `add` term times its `scale` (default 1).
+
+    None if any part can't be read."""
+    value = memory.read(var_for(spec, port, defaults))
+    for term in spec.get("add") or ():
+        if value is None:
+            return None
+        extra = memory.read(var_for(term, port, defaults))
+        if extra is None:
+            return None
+        value += int(term.get("scale", 1)) * extra
+    return value
+
+
 def is_per_player(spec):
     return isinstance(spec.get("address"), dict) or spec.get("stride") is not None
 

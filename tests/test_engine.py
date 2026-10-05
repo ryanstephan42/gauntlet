@@ -10,7 +10,7 @@ from gauntlet.actions import Effect, EffectContext, EffectScheduler, collect_con
 from gauntlet.detect import Install, find_core, find_rom, list_cores
 from gauntlet.fakera import FakeRetroArch
 from gauntlet.match import MatchRunner, Participant, Purchase, build_config, plan_effects
-from gauntlet.memory import Memory, Var, compare, host_address, parse_int, var_for
+from gauntlet.memory import Memory, Var, compare, host_address, parse_int, read_metric, var_for
 from gauntlet.referee import Referee, TurnReferee, TurnResult, forfeit_verdict, rank_turns
 from gauntlet.retroarch import Launcher, RetroArchClient, parse_status
 from gauntlet.schema import normalize_game, validate_game
@@ -90,6 +90,29 @@ def test_memory_roundtrip_swap32(client, fake):
     # logical bytes 12 34 at 0x100/0x101 land at host 0x103/0x102
     assert fake.ram[0x103] == 0x12 and fake.ram[0x102] == 0x34
     assert mem.read(var) == 0x1234
+
+
+def test_read_metric_adds_scaled_terms(client, fake):
+    mem = Memory(client)
+    fake.poke(0x10, [3, 4, 5, 1, 9])
+    team = {"address": "0x10", "add": [{"address": "0x11"}, {"address": "0x12"}]}
+    assert read_metric(mem, team) == 12
+    score = {"address": {"1": "0x10", "2": "0x11"}, "add": [{"address": {"1": "0x13", "2": "0x14"}, "scale": -1}]}
+    assert read_metric(mem, score, 1) == 2 and read_metric(mem, score, 2) == -5
+    assert read_metric(mem, {"address": "0x10"}) == 3
+    assert read_metric(mem, {"address": "0x10", "add": [{"address": "0x90000"}]}) is None
+
+
+def test_metric_add_validation():
+    def game(metric):
+        return {"schema_version": 2, "meta": {"name": "T", "core": "c", "rom": "r", "players": 2},
+                "challenges": [{"id": "a", "name": "A", "mode": "versus", "metric": metric,
+                                "win": {"type": "reach", "value": 1}}]}
+    assert validate_game(game({"address": "0x10", "add": [{"address": "0x11", "scale": -1}]})) == []
+    assert any("add must be" in e for e in validate_game(game({"address": "0x10", "add": []})))
+    assert any("scale" in e for e in validate_game(game({"address": "0x10", "add": [{"address": "0x11",
+                                                                                     "scale": "x"}]})))
+    assert any("address" in e for e in validate_game(game({"address": "0x10", "add": [{"size": 1}]})))
 
 
 # ----------------------------------------------------------------------------- client

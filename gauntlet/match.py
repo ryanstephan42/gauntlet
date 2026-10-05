@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass, field
 
 from .actions import Effect, EffectContext, EffectScheduler, collect_config
-from .memory import Memory, compare, is_per_player, var_for
+from .memory import Memory, compare, is_per_player, read_metric, var_for
 from .referee import RaceReferee, Referee, TurnReferee, Verdict, forfeit_verdict, rank_turns
 from . import startstate, winplace
 
@@ -414,7 +414,7 @@ class MatchRunner:
                 for p in active:
                     port = 1 if turn_player else (1 if self.mode == "coop" and not is_per_player(metric) else p.port)
                     try:
-                        values[p.key] = memory.read(var_for(metric, port, defaults))
+                        values[p.key] = read_metric(memory, metric, port, defaults)
                     except KeyError:
                         values[p.key] = None
                 if all(v is None for v in values.values()):
@@ -539,7 +539,7 @@ class MatchRunner:
                         ready[key] = rv is not None and compare(ready_spec.get("op", "eq"), rv,
                                                                 int(ready_spec["value"]))
                     try:
-                        values[key] = inst.memory.read(var_for(metric, 1, defaults))
+                        values[key] = read_metric(inst.memory, metric, 1, defaults)
                     except KeyError:
                         values[key] = None
                 if all(v is None for v in values.values()):

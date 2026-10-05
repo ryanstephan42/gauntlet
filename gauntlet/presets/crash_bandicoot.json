@@ -1,0 +1,75 @@
+{
+  "id": "crash_psx_usa",
+  "title": "Crash Bandicoot",
+  "system": "psx",
+  "match": [
+    "crash bandicoot"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + swanstation, Crash Bandicoot (USA). Overworld status $61994 (0 in a stage, 1 on the map: 1 -> 0 entering a stage); stage $619C5 (0 N. Sanity Beach); boxes broken $61985 (0 -> 2)",
+  "game": {
+    "meta": {
+      "name": "Crash Bandicoot",
+      "system": "psx",
+      "core": "swanstation",
+      "players": 1,
+      "description": "Take turns on N. Sanity Beach."
+    },
+    "memory": {
+      "layout": "linear",
+      "endian": "little"
+    },
+    "challenges": [
+      {
+        "id": "n_sanity_beach",
+        "name": "Beat N. Sanity Beach",
+        "mode": "turns",
+        "description": "Finish the first stage: fastest wins.",
+        "metric": {
+          "address": "0x61994",
+          "size": 1
+        },
+        "win": {
+          "type": "equals",
+          "value": 1
+        },
+        "time_limit": 360,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x61994",
+          "size": 1,
+          "op": "eq",
+          "value": 0
+        },
+        "start_state": "crash_nsb.state"
+      },
+      {
+        "id": "box_breaker",
+        "name": "Box Breaker",
+        "mode": "turns",
+        "description": "Two minutes on N. Sanity Beach: most boxes broken wins.",
+        "metric": {
+          "address": "0x61985",
+          "size": 1
+        },
+        "win": {
+          "type": "compare",
+          "order": "high"
+        },
+        "time_limit": 120,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x61994",
+          "size": 1,
+          "op": "eq",
+          "value": 0
+        },
+        "start_state": "crash_nsb.state"
+      }
+    ],
+    "shop": []
+  }
+}

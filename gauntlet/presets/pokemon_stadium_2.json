@@ -1,0 +1,62 @@
+{
+  "id": "pokemon_stadium_2_n64",
+  "title": "Pokemon Stadium 2",
+  "system": "n64",
+  "match": [
+    "pokemon stadium 2",
+    "pokémon stadium 2"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + mupen64plus_next, Pokemon Stadium 2 (USA). Battle state $11F301 (0x0E fighting, 0x2A over); COM team HP $14576E / $1457C6 / $14581E (all 0 -> battle over); P1 team HP $14528E / $1452E6 / $14533E",
+  "game": {
+    "meta": {
+      "name": "Pokemon Stadium 2",
+      "system": "n64",
+      "core": "mupen64plus_next",
+      "players": 1,
+      "description": "Take turns in a Free Battle against the COM."
+    },
+    "memory": {
+      "layout": "swap32",
+      "endian": "big"
+    },
+    "challenges": [
+      {
+        "id": "free_battle",
+        "name": "Free Battle",
+        "mode": "turns",
+        "description": "Knock out all three COM Pokemon: fastest wins (least COM HP left if nobody does).",
+        "metric": {
+          "address": "0x14576E",
+          "size": 2,
+          "add": [
+            {
+              "address": "0x1457C6",
+              "size": 2
+            },
+            {
+              "address": "0x14581E",
+              "size": 2
+            }
+          ]
+        },
+        "win": {
+          "type": "equals",
+          "value": 0,
+          "order": "low"
+        },
+        "time_limit": 600,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x11F301",
+          "size": 1,
+          "op": "eq",
+          "value": 14
+        },
+        "start_state": "ps2_freebattle.state"
+      }
+    ],
+    "shop": []
+  }
+}

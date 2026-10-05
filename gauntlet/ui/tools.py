@@ -17,7 +17,7 @@ from ..games import delete_game, duplicate_game, save_game, slugify, strip_priva
 from ..inputmap import Action
 from ..layout import DESIGN_H, DESIGN_W
 from ..memlab import FILTERS, MAX_REGION, RamSearch, Watch
-from ..memory import Memory, Var, parse_int, var_for
+from ..memory import Memory, Var, parse_int, read_metric
 from ..packs import export_pack, import_pack
 from ..presets import TEMPLATES, game_from_preset, generic_items, match_presets, template
 from ..match import Participant, build_config
@@ -1248,7 +1248,7 @@ class ChallengeEditor(_SubEditor):
             values = []
             for port in ports:
                 try:
-                    values.append((port, mem.read(var_for(self.ch["metric"], port, defaults))))
+                    values.append((port, read_metric(mem, self.ch["metric"], port, defaults)))
                 except KeyError:
                     break
             if not values or all(v is None for _p, v in values):
