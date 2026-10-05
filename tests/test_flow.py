@@ -234,6 +234,29 @@ def test_full_versus_session_with_fake_retroarch(driver):
     assert isinstance(d.screen, flow.MainMenu)
 
 
+def test_wide_match_window_draws_the_scoreboard_strip(driver, monkeypatch):
+    import pygame
+    d = driver
+    start_session(d)
+    match = shop_and_launch(d)
+    d.wait_for(lambda: match.snap.get("values"), what="live values")
+    assert match.power_ups(0) == [("Boost", True)] and match.power_ups(1) == []
+    assert match.player_status(0)[0] == "bar"
+    calls = []
+    real = match.draw_strip
+    monkeypatch.setattr(match, "draw_strip", lambda p, h: (calls.append(h), real(p, h)))
+    painter = d.app.painter
+    for size in ((2560, 354), (1280, 720)):
+        surf = pygame.Surface(size)
+        painter.set_surface(surf)
+        try:
+            match.draw(surf)
+        finally:
+            painter.set_surface(d.app.screen)
+    assert len(calls) == 1 and abs(calls[0] - 1280 * 354 / 2560) < 1e-6
+    d.wait_for(lambda: isinstance(d.screen, flow.ResultsScreen), what="results")
+
+
 def test_manual_challenge_reports_result(driver):
     d = driver
     session = start_session(d, challenge_next=1)

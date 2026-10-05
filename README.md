@@ -68,6 +68,19 @@ Notes on races:
     the cursor may jump.
 - **Turning races off.** Set `simultaneous_play` to `false` to always take turns.
 
+### Match layout: games on top, live scoreboard below (Hyprland / Sway)
+On Hyprland or Sway, every match (versus, turns, races) is arranged as one screen:
+- The game windows fill the top of the monitor: one wide window for versus/turns, side by side
+  for a race.
+- Gauntlet's own window becomes a strip along the bottom (`stage_hud_percent`, 25% by default).
+  - Each player has a panel with their live metric (e.g. MK2 health) as a number and a bar.
+  - The panel also lists the power-ups that affect that player: buffs in green, debuffs in red.
+  - The middle shows the challenge, the clock and its description.
+- When the match ends, Gauntlet's window goes back to how it was (tiled, floating or fullscreen).
+- Turn it off with `stage_layout: false` ("Match layout" in Settings) to get the old behaviour:
+  a fullscreen RetroArch for versus/turns, and tiles across the whole screen for races.
+- Needs `race_place_windows`. Other desktops always use the old behaviour.
+
 ## Settings
 Edit them in **Settings** in the app, or in `settings.json` (or the file given with `--settings`).
 Missing keys use defaults; invalid values are logged and ignored.
@@ -79,7 +92,8 @@ Missing keys use defaults; invalid values are logged and ignored.
 | Economy | `player_count`, `starting_points`, `win_points`, `loss_points`, `draw_points`, `catchup_step`, `catchup_max`, `streak_bonus`, `streak_max`, `max_items`, `wagers` |
 | Display/input | `fullscreen`, `width`, `height`, `tv_mode`, `sound`, `volume`, `split_keyboard`, `key_bindings`, `button_bindings` (Settings → Remap menu controls) |
 | Matches | `boot_timeout`, `poll_interval`, `close_delay`, `assign_ports` |
-| Races | `simultaneous_play`, `race_input_driver` (`""` = auto: `udev` when readable), `race_mute_others`, `race_place_windows` |
+| Races | `simultaneous_play`, `race_input_driver` (`""` = auto: `udev` when readable), `race_mute_others`, `race_place_windows` (float match windows into place) |
+| Match layout | `stage_layout` (games on top, scoreboard strip below; Hyprland/Sway), `stage_hud_percent` (strip height, 10–50) |
 
 Tip: `retroarch_overrides` is the escape hatch for RetroArch quirks on your machine. For example,
 if a device that isn't a gamepad shows up as joystick 0 and steals player 1's port, try

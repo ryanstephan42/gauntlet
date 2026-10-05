@@ -225,7 +225,7 @@ def test_race_first_to_goal_closes_every_window(tmp_path, monkeypatch):
 
 
 class FakePlacer:
-    """A compositor whose windows belong to each launched process (fakera opens none)."""
+    """A compositor showing Gauntlet's own window and one per launched RetroArch (fakera opens none)."""
     name = "Fake"
 
     def __init__(self):
@@ -237,7 +237,8 @@ class FakePlacer:
         return (1000, 20, 2000, 1000)
 
     def windows(self):
-        return [(f"w{i.process.pid}", i.process.pid) for i in self.runner.instances if i.process]
+        procs = [i.process for i in self.runner.instances] + [self.runner.process]
+        return [("gauntlet", os.getpid())] + [(f"w{p.pid}", p.pid) for p in procs if p]
 
     def place(self, wid, rect):
         self.placed[wid] = rect
@@ -248,13 +249,22 @@ class FakePlacer:
         self.calls.append((wid, "focus"))
         return True
 
+    def geometry(self, wid):
+        return {"floating": False, "rect": (0, 0, 800, 600)}
+
+    def restore(self, wid, geometry):
+        self.calls.append((wid, "restore", geometry["floating"]))
+        return True
+
 
 def test_race_windows_are_placed_on_their_tiles(tmp_path, monkeypatch):
     st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [
         {"events": [{"at": 1.5, "address": 0x10, "bytes": [5]}]}, {}]})
+    st.stage_layout = False
     backend = FakePlacer()
     runner = MatchRunner(launcher, game, REACH, [pad("a", 0), pad("b", 1)], [], st, placer=backend)
     backend.runner = runner
+    assert not runner.stage
     snap = run(runner)
     assert snap["phase"] == "finished", snap
     pids = [i.process.pid for i in runner.instances]
@@ -264,6 +274,43 @@ def test_race_windows_are_placed_on_their_tiles(tmp_path, monkeypatch):
     cfg_b = read_cfg(os.path.join(st.sub_state("retroarch"), "race_p2.cfg"))
     assert cfg_b["video_windowed_position_x"] == "2000"  # RetroArch's own keys agree with the tile
     assert not runner._placer._thread.is_alive()
+
+
+def test_race_stage_layout_games_on_top_scoreboard_below(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [
+        {"events": [{"at": 1.5, "address": 0x10, "bytes": [5]}]}, {}]})
+    backend = FakePlacer()
+    runner = MatchRunner(launcher, game, REACH, [pad("a", 0), pad("b", 1)], [], st, placer=backend)
+    backend.runner = runner
+    assert runner.stage
+    snap = run(runner)
+    assert snap["phase"] == "finished", snap
+    pids = [i.process.pid for i in runner.instances]
+    assert backend.placed == {f"w{pids[0]}": (1000, 20, 1000, 750), f"w{pids[1]}": (2000, 20, 1000, 750),
+                              "gauntlet": (1000, 770, 2000, 250)}
+    assert snap["hud"] == (1000, 770, 2000, 250)
+    assert ("gauntlet", "focus") not in backend.calls  # only game windows are focused
+    assert backend.calls[-1] == ("gauntlet", "restore", False)  # put back before the result shows
+
+
+def test_versus_stage_layout_places_the_shared_window(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {
+        "events": [{"at": 0.0, "address": 0x10, "bytes": [3]}, {"at": 0.0, "address": 0x11, "bytes": [3]},
+                   {"at": 1.2, "address": 0x11, "bytes": [0]}]}, n=1)
+    st.stage_hud_percent = 30
+    ch = {"id": "ko", "name": "KO", "mode": "versus", "min_time": 0, "time_limit": 30,
+          "metric": {"address": {"1": "0x10", "2": "0x11"}}, "win": {"type": "eliminate", "value": 0}}
+    backend = FakePlacer()
+    players = [Participant("a", "A", 1, 0), Participant("b", "B", 2, 1)]
+    runner = MatchRunner(launcher, game, ch, players, [], st, placer=backend)
+    backend.runner = runner
+    snap = run(runner)
+    assert snap["phase"] == "finished" and runner.verdict.winners == ["a"], snap
+    pid = runner.process.pid
+    assert backend.placed == {f"w{pid}": (1000, 20, 2000, 700), "gauntlet": (1000, 720, 2000, 300)}
+    cfg = read_cfg(os.path.join(st.sub_state("retroarch"), "match.cfg"))
+    assert cfg["video_fullscreen"] == "false" and cfg["video_windowed_position_y"] == "20"
+    assert backend.calls[-1] == ("gauntlet", "restore", False)
 
 
 def test_race_window_closed_counts_as_quit(tmp_path, monkeypatch):

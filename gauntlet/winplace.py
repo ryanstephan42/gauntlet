@@ -1,8 +1,9 @@
-"""Force race windows to float on their tile under tiling Wayland compositors (Hyprland, Sway).
+"""Float match windows onto their tiles under tiling Wayland compositors (Hyprland, Sway).
 
 Tiling compositors ignore RetroArch's `video_windowed_position_*` keys and stack or full-screen new
 windows; a covered RetroArch window can stall (no frame callbacks). We find each instance's window
 by PID (the launcher PID or a descendant, e.g. through flatpak/bwrap) and float + move + resize it.
+Gauntlet's own window can be placed too (the scoreboard strip) and is put back when the match ends.
 Other desktops (X11, GNOME, KDE) honour RetroArch's own position keys, so detect() returns None.
 """
 import json
@@ -59,6 +60,7 @@ class Hyprland:
     def __init__(self, run=_run):
         self.run = run
         self._fullscreen = set()
+        self._info = {}
 
     def _json(self, what):
         out = self.run(["hyprctl", "-j", what])
@@ -84,7 +86,22 @@ class Hyprland:
         """[(window id, pid)]"""
         clients = [c for c in self._json("clients") or [] if c.get("mapped", True)]
         self._fullscreen = {c["address"] for c in clients if c.get("fullscreen")}
+        self._info = {c["address"]: c for c in clients}
         return [(c["address"], c.get("pid")) for c in clients]
+
+    def geometry(self, wid):
+        """{"floating": bool, "rect": (x, y, w, h)} as of the last windows() call, or None."""
+        c = self._info.get(wid)
+        if not c or "at" not in c or "size" not in c:
+            return None
+        return {"floating": bool(c.get("floating")), "rect": (*c["at"], *c["size"])}
+
+    def restore(self, wid, geometry):
+        """Put a window back the way geometry() saw it (tiled, or floating at its old place)."""
+        sel = f"address:{wid}"
+        if geometry and geometry["floating"]:
+            return self.place(wid, geometry["rect"])
+        return self.run(["hyprctl", "dispatch", "settiled", sel]) is not None
 
     def place(self, wid, rect):
         x, y, w, h = rect
@@ -107,6 +124,7 @@ class Sway:
 
     def __init__(self, run=_run):
         self.run = run
+        self._info = {}
 
     def _json(self, what):
         out = self.run(["swaymsg", "-r", "-t", what])
@@ -125,10 +143,12 @@ class Sway:
 
     def windows(self):
         found = []
+        self._info = {}
 
         def walk(node):
             if node.get("pid") and node.get("type") in ("con", "floating_con"):
                 found.append((node["id"], node["pid"]))
+                self._info[node["id"]] = node
             for child in node.get("nodes", []) + node.get("floating_nodes", []):
                 walk(child)
         tree = self._json("get_tree")
@@ -145,6 +165,19 @@ class Sway:
     def focus(self, wid):
         return self.run(["swaymsg", f"[con_id={wid}] focus"]) is not None
 
+    def geometry(self, wid):
+        node = self._info.get(wid)
+        if not node or "rect" not in node:
+            return None
+        r = node["rect"]
+        return {"floating": node.get("type") == "floating_con",
+                "rect": (r["x"], r["y"], r["width"], r["height"])}
+
+    def restore(self, wid, geometry):
+        if geometry and geometry["floating"]:
+            return self.place(wid, geometry["rect"])
+        return self.run(["swaymsg", f"[con_id={wid}] floating disable"]) is not None
+
 
 def detect(env=None, which=shutil.which):
     """The compositor backend to place windows with, or None (positions left to RetroArch)."""
@@ -154,6 +187,15 @@ def detect(env=None, which=shutil.which):
     if env.get("SWAYSOCK") and which("swaymsg"):
         return Sway()
     return None
+
+
+class _Job:
+    def __init__(self, pid, rect, own):
+        self.pid = pid
+        self.rect = tuple(int(v) for v in rect)
+        self.own = own      # Gauntlet's own window: exact PID, never focused, restored on stop()
+        self.wid = None     # window last placed
+        self.saved = None   # its geometry before we first moved it (own windows only)
 
 
 class Placer:
@@ -166,7 +208,7 @@ class Placer:
     def __init__(self, backend, descendants=descendants):
         self.backend = backend
         self.descendants = descendants
-        self.jobs = []      # [pid, rect, id of the window last placed]
+        self.jobs = []
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self._thread = None
@@ -177,62 +219,86 @@ class Placer:
         except (KeyError, TypeError, ValueError):
             return None
 
-    def add(self, pid, rect):
-        self.jobs.append([pid, tuple(int(v) for v in rect), None])
+    def add(self, pid, rect, own=False):
+        """Place `pid`'s window at `rect`; `own`: this process's window (exact PID, restored on stop)."""
+        with self._lock:
+            self.jobs.append(_Job(pid, rect, own))
+
+    def forget(self, pid):
+        """Stop tracking a process (e.g. a RetroArch that closed between turns)."""
+        with self._lock:
+            self.jobs = [j for j in self.jobs if j.pid != pid or j.own]
 
     @property
     def placed(self):
-        return all(j[2] is not None for j in self.jobs)
+        return all(j.wid is not None for j in self.jobs)
 
     def poll(self):
         """One placement pass over every job; returns True when every process has a placed window."""
         with self._lock:
             windows = self.backend.windows()
             for job in self.jobs:
-                pids = self.descendants(job[0])
+                pids = {job.pid} if job.own else self.descendants(job.pid)
                 mine = [wid for wid, pid in windows if pid in pids]
-                if mine and mine[-1] != job[2] and self.backend.place(mine[-1], job[1]):
-                    job[2] = mine[-1]
-                    log.info("Placed window of pid %s at %s (%s)", job[0], job[1], self.backend.name)
+                if not mine or mine[-1] == job.wid:
+                    continue
+                if job.own and job.saved is None and hasattr(self.backend, "geometry"):
+                    job.saved = self.backend.geometry(mine[-1]) or {}
+                if self.backend.place(mine[-1], job.rect):
+                    job.wid = mine[-1]
+                    log.info("Placed window of pid %s at %s (%s)", job.pid, job.rect, self.backend.name)
             return self.placed
 
     def refresh(self, pause=0.2):
-        """Focus each placed window in turn, ending on player 1's.
+        """Focus each placed game window in turn, ending on player 1's.
 
         RetroArch keeps drawing at its old size after the compositor resizes it and only catches
         up when its focus changes (e.g. the mouse moving over it); call this once they are running.
         """
         try:
             with self._lock:
-                for wid in reversed([j[2] for j in self.jobs if j[2] is not None]):
+                for wid in reversed([j.wid for j in self.jobs if j.wid is not None and not j.own]):
                     self.backend.focus(wid)
                     time.sleep(pause)
         except Exception:  # noqa: BLE001 - placement is best effort; never break the match
             log.exception("window refresh failed")
 
     def start(self, timeout=120.0, interval=0.5, settle=15.0):
-        """Poll in the background; stops `settle` seconds after the last placement once all are placed."""
+        """Poll in the background; stops `settle` seconds after the last placement once all are placed.
+        Calling it again while the thread is alive does nothing (new jobs are picked up)."""
+        if self._thread and self._thread.is_alive():
+            return
+
         def loop():
             end = time.monotonic() + timeout
             last = None
             while not self._stop.is_set() and time.monotonic() < end:
                 try:
-                    before = [j[2] for j in self.jobs]
+                    before = [j.wid for j in self.jobs]
                     self.poll()
                 except Exception:  # noqa: BLE001 - placement is best effort; never break the match
                     log.exception("window placement failed")
                     return
-                if [j[2] for j in self.jobs] != before:
+                if [j.wid for j in self.jobs] != before:
                     last = time.monotonic()
                 if self.placed and last is not None and time.monotonic() - last > settle:
                     return
                 self._stop.wait(interval)
             if not self.placed:
-                log.warning("Could not place every race window (%s)", self.backend.name)
+                log.warning("Could not place every match window (%s)", self.backend.name)
         self._thread = threading.Thread(target=loop, name="gauntlet-placer", daemon=True)
         self._thread.start()
 
     def stop(self):
+        """Stop placing and put Gauntlet's own window back where it was."""
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=2)
+        with self._lock:
+            for job in self.jobs:
+                if job.own and job.wid is not None and hasattr(self.backend, "restore"):
+                    try:
+                        self.backend.restore(job.wid, job.saved)
+                    except Exception:  # noqa: BLE001 - best effort
+                        log.exception("could not restore the Gauntlet window")
+                    job.wid = None

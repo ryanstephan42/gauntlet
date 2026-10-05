@@ -19,6 +19,7 @@ log = logging.getLogger("gauntlet.ui.flow")
 CATEGORY_COLORS = {"buff": (60, 200, 110), "debuff": (232, 72, 85), "chaos": (200, 120, 255)}
 MODE_LABELS = {"versus": "Versus", "turns": "Single-player", "coop": "Co-op", "manual": "Manual"}
 FORFEIT_HOLD = 1.5
+STRIP_ASPECT = 2.4  # a match window at least this wide (w/h) is drawn as the scoreboard strip
 
 
 # ------------------------------------------------------------------------------------ helpers
@@ -977,7 +978,7 @@ class MatchScreen(BaseScreen):
         self.done = False
         self.runner = MatchRunner(self.app.launcher, self.game, self.challenge, self.participants(),
                                   self.purchases(), self.app.settings, screen=self.app.desktop_size())
-        self.app.race_windowed(self.runner.race.race)
+        self.app.race_windowed(self.runner.race.race or self.runner.stage)
         self.runner.start()
 
     def on_exit(self):
@@ -1086,13 +1087,44 @@ class MatchScreen(BaseScreen):
             save_session(self.app, self.session)
             self.app.manager.reset(RoundIntro(self.app, self.session))
 
-    def draw_body(self, p):
-        a = self.app
-        m = p.margin
+    # -- live values --------------------------------------------------------------------
+    def player_status(self, pid):
+        """("bar", value, fraction) for a live value, else ("text", label, color)."""
+        a, s = self.app, self.snap
+        v = s.get("values", {}).get(pid)
+        race = s.get("players", {}).get(pid)
+        if race and race["status"] not in ("racing", "waiting"):
+            label = {"finished": "FINISHED", "out": "OUT", "done": "TIME"}.get(race["status"], "")
+            return ("text", f"{label}  {race['value'] if race['value'] is not None else '-'} in "
+                            f"{race['time']:.1f}s ({race['reason']})",
+                    a.theme.good if race["status"] == "finished" else a.theme.text_dim)
+        if race and race["status"] == "waiting" and v is None:
+            return ("text", "waiting for the game to start", a.theme.text_dim)
+        if v is not None:
+            win = self.challenge.get("win") or {}
+            if win.get("type") in ("reach",) and win.get("value"):
+                frac = v / max(1, win["value"])
+            else:
+                frac = v / max(1, self.max_seen.get(pid, 1))
+            return ("bar", v, frac)
+        done = [r for r in (self.runner.turn_results if self.runner else []) if r.player == pid]
+        txt = (f"{done[0].value} in {done[0].time:.1f}s ({done[0].reason})" if done else
+               ("waiting" if self.challenge.get("mode") == "turns" else
+                "manual result" if self.challenge.get("mode") == "manual" else "—"))
+        return ("text", txt, a.theme.text_dim)
+
+    def power_ups(self, pid):
+        """[(item name, is_buff)] for the items bought into this match that affect player `pid`."""
+        out = []
+        for pu in self.purchases():
+            targets = list(pu.targets) or [pu.buyer]
+            if pid in targets:
+                out.append((pu.item.get("name", pu.item.get("id", "?")), pu.item.get("category") != "debuff"))
+        return out
+
+    def headline(self):
         s = self.snap
-        phase = s.get("phase")
-        turn = s.get("turn")
-        y = 110
+        phase, turn = s.get("phase"), s.get("turn")
         big = {"launching": "Launching...", "waiting": "Starting RetroArch...", "playing": "FIGHT!",
                "finished": "Finished!", "no_verdict": "Match over", "error": "Error", "cancelled": "Cancelled",
                "idle": "Preparing..."}.get(phase, phase)
@@ -1100,44 +1132,113 @@ class MatchScreen(BaseScreen):
             big = f"{self.session.player(turn).name}'s turn"
         elif s.get("race") and phase == "playing":
             big = "RACE!"
-        p.text(big, DESIGN_W / 2, y, 48, a.theme.accent, "center", bold=True)
+        return big
+
+    def clock(self):
+        rem = self.snap.get("remaining")
+        if rem is None:
+            return None
+        mins, secs = divmod(max(0, int(rem)), 60)
+        return f"{mins}:{secs:02d}"
+
+    # -- drawing ----------------------------------------------------------------------------
+    def draw(self, surface):
+        w, h = surface.get_size()
+        if h and w / h >= STRIP_ASPECT:
+            design_h = DESIGN_W * h / w
+            with self.app.painter.design(DESIGN_W, design_h):
+                self.draw_strip(self.app.painter, design_h)
+            return
+        super().draw(surface)
+
+    def draw_strip(self, p, H):
+        """Scoreboard strip under the game windows: players left and right, the task in the middle."""
+        a = self.app
+        th = a.theme
+        p.rect(0, 0, DESIGN_W, H, th.bg)
+        pids = list(self.rnd.players)
+        m, gap = 10, 10
+        center_w = 420 if len(pids) <= 2 else 340
+        left = pids[:(len(pids) + 1) // 2]
+        right = pids[len(left):]
+        side_w = (DESIGN_W - center_w - 2 * m - 2 * gap) / 2
+        cx = m + side_w + gap
+        turn = self.snap.get("turn")
+        for group, x0 in ((left, m), (right, cx + center_w + gap)):
+            if not group:
+                continue
+            cw = (side_w - gap * (len(group) - 1)) / len(group)
+            for i, pid in enumerate(group):
+                self._strip_player(p, pid, x0 + i * (cw + gap), m, cw, H - 2 * m,
+                                   turn is None or turn == pid)
+        # the task
+        y = m
+        p.text(self.subtitle or self.title, cx + center_w / 2, y, 22, th.accent, "center", bold=True,
+               width=center_w)
+        y += 30
+        clock = self.clock()
+        p.text(clock or self.headline(), cx + center_w / 2, y, 34 if clock else 26, th.text, "center",
+               bold=True, width=center_w)
+        y += 44
+        warn = self.snap.get("warnings", [])
+        msg = ("⚠ " + warn[-1]) if warn else (self.snap.get("message") or "")
+        if msg and y + 18 <= H - m:
+            p.text(msg, cx + center_w / 2, y, 16, th.bad if warn else th.text_dim, "center", width=center_w)
+            y += 24
+        desc = self.challenge.get("description", "")
+        lines = int((H - m - y) // 20)
+        if desc and lines > 0:
+            p.wrapped(desc, cx, y, center_w, 15, th.text_dim, max_lines=min(3, lines))
+
+    def _strip_player(self, p, pid, x, y, w, h, active):
+        th = self.app.theme
+        pl = self.session.player(pid)
+        p.panel(x, y, w, h, border=pl.rgb if active else None)
+        pad = 12
+        draw_player_chip(p, pl, x + pad, y + pad, w * 0.6, size=20)
+        kind, a, b = self.player_status(pid)
+        if kind == "bar":
+            p.text(str(a), x + w - pad, y + pad - 4, 34, None, "right", bold=True)
+            p.bar(x + pad, y + pad + 44, w - 2 * pad, 16, b, pl.rgb)
+        else:
+            p.text(a, x + pad, y + pad + 40, 18, b, width=w - 2 * pad)
+        ups = self.power_ups(pid)
+        py = y + pad + 72
+        if ups and py + 24 <= y + h:
+            px = x + pad
+            for name, buff in ups:
+                chip_w = p.measure(name, 15, True) + 18
+                if px + chip_w > x + w - pad:
+                    p.text("…", px, py + 2, 16, th.text_dim)
+                    break
+                px += p.chip(name, px, py, th.good if buff else th.bad, size=15) + 6
+        elif py + 18 <= y + h:
+            p.text("No power-ups", x + pad, py + 2, 15, th.text_dim)
+
+    def draw_body(self, p):
+        a = self.app
+        m = p.margin
+        s = self.snap
+        turn = s.get("turn")
+        y = 110
+        p.text(self.headline(), DESIGN_W / 2, y, 48, a.theme.accent, "center", bold=True)
         p.text(s.get("message", ""), DESIGN_W / 2, y + 66, 22, a.theme.text_dim, "center",
                width=DESIGN_W - 2 * m)
-        rem = s.get("remaining")
-        if rem is not None:
-            mins, secs = divmod(max(0, int(rem)), 60)
-            p.text(f"{mins}:{secs:02d}", DESIGN_W - m - 20, y, 48, a.theme.text, "right", bold=True)
-        win = self.challenge.get("win") or {}
+        clock = self.clock()
+        if clock:
+            p.text(clock, DESIGN_W - m - 20, y, 48, a.theme.text, "right", bold=True)
         y = 230
-        values = s.get("values", {})
-        racers = s.get("players", {})
         for pid in self.rnd.players:
             pl = self.session.player(pid)
             active = turn is None or turn == pid
             p.panel(m + 20, y, DESIGN_W - 2 * m - 40, 64, border=pl.rgb if active else None)
             draw_player_chip(p, pl, m + 36, y + 14, 260)
-            v = values.get(pid)
-            race = racers.get(pid)
-            if race and race["status"] not in ("racing", "waiting"):
-                label = {"finished": "FINISHED", "out": "OUT", "done": "TIME"}.get(race["status"], "")
-                p.text(f"{label}  {race['value'] if race['value'] is not None else '-'} in {race['time']:.1f}s"
-                       f" ({race['reason']})", m + 320, y + 18, 22,
-                       a.theme.good if race["status"] == "finished" else a.theme.text_dim, width=700)
-            elif race and race["status"] == "waiting" and v is None:
-                p.text("waiting for the game to start", m + 320, y + 18, 22, a.theme.text_dim, width=700)
-            elif v is not None:
-                if win.get("type") in ("reach",) and win.get("value"):
-                    frac = v / max(1, win["value"])
-                else:
-                    frac = v / max(1, self.max_seen.get(pid, 1))
-                p.bar(m + 320, y + 22, 640, 20, frac, pl.rgb)
+            kind, v, extra = self.player_status(pid)
+            if kind == "bar":
+                p.bar(m + 320, y + 22, 640, 20, extra, pl.rgb)
                 p.text(str(v), DESIGN_W - m - 40, y + 16, 26, None, "right")
             else:
-                done = [r for r in (self.runner.turn_results if self.runner else []) if r.player == pid]
-                txt = (f"{done[0].value} in {done[0].time:.1f}s ({done[0].reason})" if done else
-                       ("waiting" if self.challenge.get("mode") == "turns" else
-                        "manual result" if self.challenge.get("mode") == "manual" else "—"))
-                p.text(txt, m + 320, y + 18, 22, a.theme.text_dim, width=700)
+                p.text(v, m + 320, y + 18, 22, extra, width=700)
             y += 76
         for i, w in enumerate(s.get("warnings", [])[-3:]):
             p.text("⚠ " + w, m + 20, DESIGN_H - m - 150 + i * 28, 20, a.theme.bad, width=DESIGN_W - 2 * m)

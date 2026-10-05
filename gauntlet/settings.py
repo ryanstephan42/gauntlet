@@ -63,7 +63,10 @@ class Settings:
     # so every window hears its own keys without focus)
     race_input_driver: str = ""
     race_mute_others: bool = True  # only player 1's window plays sound
-    race_place_windows: bool = True  # Hyprland/Sway: force race windows to float on their tile
+    race_place_windows: bool = True  # Hyprland/Sway: float match windows onto their tiles
+    # Hyprland/Sway: games across the top, Gauntlet's live scoreboard strip below (needs race_place_windows)
+    stage_layout: bool = True
+    stage_hud_percent: int = 25  # scoreboard strip height, % of the screen
 
     def validate(self):
         return list(_range_errors(self).values())
@@ -109,6 +112,8 @@ def _range_errors(settings):
         value = getattr(settings, name)
         if not _is_int(value) or value < lo:
             errors[name] = f"{name} must be >= {lo}"
+    if not _is_int(settings.stage_hud_percent) or not 10 <= settings.stage_hud_percent <= 50:
+        errors["stage_hud_percent"] = "stage_hud_percent must be between 10 and 50"
     if not _is_int(settings.width) or settings.width < 320:
         errors["width"] = "width must be at least 320"
     if not _is_int(settings.height) or settings.height < 240:

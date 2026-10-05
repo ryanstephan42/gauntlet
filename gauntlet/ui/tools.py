@@ -202,8 +202,13 @@ class SettingsScreen(FormScreen):
               fmt=lambda v: "Race (all at once)" if v else "Take turns",
               help="Race: one RetroArch window per player, first to finish ends it for everyone."),
             F("race_mute_others", "Race: only player 1's window has sound", "bool", s.race_mute_others),
-            F("race_place_windows", "Race: float windows side by side (Hyprland/Sway)", "bool",
+            F("race_place_windows", "Float match windows into place (Hyprland/Sway)", "bool",
               s.race_place_windows),
+            F("stage_layout", "Match layout", "bool", s.stage_layout,
+              fmt=lambda v: "Games on top, scoreboard below" if v else "Game fills the screen",
+              help="Hyprland/Sway: game windows share the top, Gauntlet shows live scores in a strip below."),
+            F("stage_hud_percent", "Scoreboard height (% of screen)", "int", s.stage_hud_percent,
+              lo=10, hi=50, step=5),
             F("race_input_driver", "Race: RetroArch input driver", "choice", s.race_input_driver,
               options=["", "udev", "x", "sdl2"], labels=["Auto", "udev", "x", "sdl2"],
               help="udev lets every window read the keyboard without focus (needs the 'input' group)."),
@@ -240,7 +245,7 @@ class SettingsScreen(FormScreen):
                     "catchup_max", "streak_bonus", "streak_max", "max_items", "wagers", "fullscreen",
                     "tv_mode", "sound", "split_keyboard", "preferred_install", "retroarch_port",
                     "assign_ports", "simultaneous_play", "race_mute_others", "race_input_driver",
-                    "race_place_windows"):
+                    "race_place_windows", "stage_layout", "stage_hud_percent"):
             setattr(s, key, v[key])
         s.width, s.height = (int(n) for n in v["resolution"].split("x"))
         s.volume = v["volume"] / 100

@@ -145,3 +145,63 @@ def test_detect():
     assert winplace.detect({"HYPRLAND_INSTANCE_SIGNATURE": "x"}, which=lambda n: None) is None
     assert winplace.detect({}, which=have) is None
     assert winplace.detect() is None  # conftest removes the real compositor from the environment
+
+
+class RestoringBackend(FakeBackend):
+    def geometry(self, wid):
+        return {"floating": True, "rect": (5, 6, 700, 500)}
+
+    def restore(self, wid, geometry):
+        self.placed.append((wid, "restore", geometry["rect"]))
+        return True
+
+
+def test_own_window_exact_pid_never_focused_and_restored_on_stop():
+    tree = {10: {10, 11}, 11: {11}}
+    b = RestoringBackend([("me", 10), ("child", 11)])
+    p = winplace.Placer(b, descendants=lambda pid: tree[pid])
+    p.add(10, (0, 700, 1000, 300), own=True)  # our own process: its children's windows are not ours
+    p.add(11, (0, 0, 1000, 700))
+    assert p.poll() is True
+    assert b.placed == [("me", (0, 700, 1000, 300)), ("child", (0, 0, 1000, 700))]
+    p.refresh(pause=0)
+    assert b.placed[-1] == ("child", "focus") and ("me", "focus") not in b.placed
+    p.forget(11)
+    p.forget(10)  # own windows are kept until stop()
+    assert [j.pid for j in p.jobs] == [10]
+    p.stop()
+    assert b.placed[-1] == ("me", "restore", (5, 6, 700, 500))
+    n = len(b.placed)
+    p.stop()
+    assert len(b.placed) == n  # restored once
+
+
+def test_backends_restore_tiled_or_floating_geometry():
+    calls = []
+    clients = [{"address": "0x1", "pid": 1, "floating": False, "at": [10, 20], "size": [300, 200]},
+               {"address": "0x2", "pid": 2, "floating": True, "at": [30, 40], "size": [500, 400]}]
+
+    def run(cmd, timeout=2.0):
+        calls.append(cmd)
+        return json.dumps(clients) if cmd[:2] == ["hyprctl", "-j"] else "ok"
+    h = winplace.Hyprland(run)
+    h.windows()
+    g1, g2 = h.geometry("0x1"), h.geometry("0x2")
+    assert g1 == {"floating": False, "rect": (10, 20, 300, 200)} and g2["floating"]
+    h.restore("0x1", g1)
+    assert calls[-1] == ["hyprctl", "dispatch", "settiled", "address:0x1"]
+    h.restore("0x2", g2)
+    assert "resizewindowpixel exact 500 400,address:0x2" in calls[-1][2]
+
+    tree = {"type": "root", "nodes": [{"type": "con", "id": 7, "pid": 42, "nodes": [],
+                                       "rect": {"x": 0, "y": 0, "width": 9, "height": 8}}]}
+    scalls = []
+
+    def srun(cmd, timeout=2.0):
+        scalls.append(cmd)
+        return json.dumps(tree) if cmd[:3] == ["swaymsg", "-r", "-t"] else "[]"
+    s = winplace.Sway(srun)
+    s.windows()
+    assert s.geometry(7) == {"floating": False, "rect": (0, 0, 9, 8)}
+    s.restore(7, s.geometry(7))
+    assert scalls[-1] == ["swaymsg", "[con_id=7] floating disable"]

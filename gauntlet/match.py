@@ -163,6 +163,25 @@ def tile_rects(n, width, height, x=0, y=0):
     return [(x + (i % cols) * w, y + (i // cols) * h, w, h) for i in range(n)]
 
 
+def stage_rects(n, area, hud_percent=25):
+    """Stage layout: `n` game windows tiled across the top of `area`, Gauntlet's scoreboard strip below.
+    -> ([game rects], scoreboard rect)"""
+    x, y, w, h = area
+    hud_h = max(1, round(h * hud_percent / 100))
+    return tile_rects(n, w, h - hud_h, x, y), (x, y + h - hud_h, w, hud_h)
+
+
+def window_config(rect):
+    """retroarch.cfg overrides for a windowed RetroArch at `rect` (honoured by X11/most desktops)."""
+    extra = {"video_fullscreen": False, "video_windowed_fullscreen": False}
+    if rect:
+        x, y, w, h = rect
+        extra.update({"video_window_save_positions": True, "video_windowed_position_x": x,
+                      "video_windowed_position_y": y, "video_windowed_position_width": w,
+                      "video_windowed_position_height": h})
+    return extra
+
+
 def race_config(participants, purchases, settings, index, rect=None, input_driver=None):
     """retroarch.cfg overrides for player `index`'s own window in a race."""
     p = participants[index]
@@ -178,12 +197,7 @@ def race_config(participants, purchases, settings, index, rect=None, input_drive
         extra["input_player1_joypad_index"] = NO_PAD
     elif p.pad_index is not None:
         extra["input_player1_joypad_index"] = p.pad_index
-    extra.update({"video_fullscreen": False, "video_windowed_fullscreen": False})
-    if rect:
-        x, y, w, h = rect
-        extra.update({"video_window_save_positions": True, "video_windowed_position_x": x,
-                      "video_windowed_position_y": y, "video_windowed_position_width": w,
-                      "video_windowed_position_height": h})
+    extra.update(window_config(rect))
     if index and settings.race_mute_others:
         extra["audio_mute_enable"] = True
     if input_driver:
@@ -208,7 +222,9 @@ class MatchRunner:
     def __init__(self, launcher, game, challenge, participants, purchases=(), settings=None, race=None,
                  screen=None, placer=None):
         """`race`: a RacePlan (None = decide with race_setup()); `screen`: (w, h) for tiling race windows;
-        `placer`: a winplace backend for race windows (None = detect; False = leave them to RetroArch)."""
+        `placer`: a winplace backend for match windows (None = detect; False = leave them to RetroArch).
+        With a backend and settings.stage_layout the games share the top of the screen and Gauntlet's
+        window becomes a live scoreboard strip below them (`stage`)."""
         self.launcher = launcher
         self.settings = settings or launcher.settings
         self.game = game
@@ -221,8 +237,12 @@ class MatchRunner:
         self.race = race if race is not None else race_setup(self.participants, self.settings)
         self.screen = screen or (1920, 1080)
         self.instances = []
-        self._backend = placer
+        if placer is None:
+            placer = winplace.detect() if self.settings.race_place_windows else None
+        self._backend = placer or None
+        self.stage = bool(self._backend) and self.settings.stage_layout
         self._placer = None
+        self._rects = None
         self._lock = threading.Lock()
         self._cancel = threading.Event()
         self._end = threading.Event()
@@ -235,7 +255,7 @@ class MatchRunner:
         self.turn_results = []
         self._snap = {"phase": "idle", "message": "", "values": {}, "remaining": None,
                       "elapsed": 0.0, "turn": None, "warnings": [], "verdict": None,
-                      "race": self.race.race, "players": {}}
+                      "race": self.race.race, "players": {}, "stage": self.stage, "hud": None}
 
     # -- UI API -----------------------------------------------------------------
     def start(self):
@@ -282,18 +302,22 @@ class MatchRunner:
         log.warning(text)
 
     def _run_safe(self):
+        final = None
         try:
-            self._run()
+            final = self._run()
         except MatchError as e:
             self.error = str(e)
-            self._set(phase="error", message=str(e))
+            final = {"phase": "error", "message": str(e)}
             log.error("Match failed: %s", e)
         except Exception as e:  # keep the UI alive on unexpected failures
             log.exception("Match crashed")
             self.error = f"unexpected error: {e}"
-            self._set(phase="error", message=self.error)
+            final = {"phase": "error", "message": self.error}
         finally:
+            # windows are closed and Gauntlet's own window restored before the UI sees the end
             self._kill()
+            if final:
+                self._set(**final)
 
     def _run(self):
         core, rom, errors = self.launcher.resolve(self.game)
@@ -304,6 +328,7 @@ class MatchRunner:
             raise MatchError(f"another RetroArch is already answering on port "
                              f"{self.settings.retroarch_port}; close it first")
         keys = [p.key for p in self.participants]
+        self._rects = self._setup_windows(len(self.participants) if self.race.race else 1)
         if self.race.race:
             self.verdict = self._run_race(core, rom)
             self.turn_results = self._race_ref.results if self._race_ref else []
@@ -327,11 +352,10 @@ class MatchRunner:
             if self._forfeit is not None and (self.verdict is None or self.verdict.forfeit is None):
                 self.verdict = forfeit_verdict(keys, self._forfeit)
         if self._cancel.is_set():
-            self._set(phase="cancelled", message="Match cancelled")
-        elif self.verdict is None:
-            self._set(phase="no_verdict", message="Match ended without a result")
-        else:
-            self._set(phase="finished", message=self.verdict.reason, verdict=self.verdict.to_dict())
+            return {"phase": "cancelled", "message": "Match cancelled"}
+        if self.verdict is None:
+            return {"phase": "no_verdict", "message": "Match ended without a result"}
+        return {"phase": "finished", "message": self.verdict.reason, "verdict": self.verdict.to_dict()}
 
     def _play_once(self, core, rom, turn_player=None):
         tag = f"{self.game['meta']['name']}" + (f" - {turn_player.name}'s turn" if turn_player else "")
@@ -339,12 +363,17 @@ class MatchRunner:
                   values={}, remaining=None, elapsed=0.0)
         extra = build_config(self.participants, self.purchases, self.settings,
                              turn_player.key if turn_player else None)
+        if self._rects:
+            extra.update(window_config(self._rects[0]))
         cfg = self.launcher.write_config("match", extra)
         slot = self._stage_start_state(rom)
         try:
             self.process = self.launcher.launch(core, rom, cfg, entry_slot=slot)
         except OSError as e:
             raise MatchError(f"cannot launch RetroArch: {e}")
+        if self._placer and self._rects:
+            self._placer.add(self.process.pid, self._rects[0])
+            self._placer.start(timeout=self.settings.boot_timeout + 60)
         self._set(phase="waiting", message="Waiting for RetroArch...")
         if not self.client.wait_until_ready(self.settings.boot_timeout, interval=0.3,
                                             process=self.process, cancel=self._cancel):
@@ -353,10 +382,14 @@ class MatchRunner:
             if self.process.poll() is not None:
                 raise MatchError("RetroArch exited during startup (see retroarch.log in the state folder)")
             raise MatchError("RetroArch did not respond; is network_cmd_enable allowed?")
+        if self._placer and self._rects:
+            self._placer.refresh()
         try:
             return self._referee_loop(turn_player)
         finally:
             self._close()
+            if self._placer:
+                self._placer.forget(self.process.pid)
 
     def _stage_start_state(self, rom, states_dir=None):
         """Copy the challenge's start state into place (fresh for every launch/turn). -> slot or None."""
@@ -442,6 +475,22 @@ class MatchRunner:
             return ref.stop(time.monotonic() - start, "forfeit" if self._forfeit else "closed early")
         return None
 
+    def _setup_windows(self, n):
+        """Rectangles for `n` game windows (None = RetroArch decides). In the stage layout Gauntlet's own
+        window is floated into the scoreboard strip under them."""
+        if self._backend and self._placer is None:
+            self._placer = winplace.Placer(self._backend)
+        area = self._placer.area() if self._placer else None
+        if area and self.stage:
+            rects, hud = stage_rects(n, area, self.settings.stage_hud_percent)
+            self._placer.add(os.getpid(), hud, own=True)
+            self._placer.start(timeout=self.settings.boot_timeout + 60)
+            self._set(hud=hud)
+            return rects
+        if self.race.race:
+            return tile_rects(n, area[2], area[3], area[0], area[1]) if area else tile_rects(n, *self.screen)
+        return None
+
     # -- race: one window per player ---------------------------------------------------
     _race_ref = None
 
@@ -455,12 +504,8 @@ class MatchRunner:
                 raise MatchError(f"another RetroArch is already answering on port {inst.port}; close it first")
         if self.race.note:
             self._warn(self.race.note)
-        backend = self._backend
-        if backend is None:
-            backend = winplace.detect() if self.settings.race_place_windows else None
-        placer = self._placer = winplace.Placer(backend) if backend else None
-        area = placer.area() if placer else None
-        rects = tile_rects(n, area[2], area[3], area[0], area[1]) if area else tile_rects(n, *self.screen)
+        placer = self._placer
+        rects = self._rects
         self._set(phase="launching", message=f"Launching {n} windows of {self.game['meta']['name']}")
         for i, inst in enumerate(self.instances):
             folder = f"p{i + 1}"
