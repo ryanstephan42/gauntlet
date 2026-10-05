@@ -193,9 +193,8 @@ class PlayerSetup(BaseScreen):
             return
         pid = max((p.id for p in self.players), default=-1) + 1
         color = self._free_color(-1)
-        known = [r["name"] for r in self.app.stats.leaderboard()]
         taken = {p.name for p in self.players}
-        name = next((n for n in known if n not in taken), None) if False else f"Player {len(self.players) + 1}"
+        name = f"Player {len(self.players) + 1}"
         while name in taken:
             name += "+"
         self.players.append(Player(pid, name, color, device, self.app.input.device_index(device)))
@@ -607,8 +606,7 @@ class RoundIntro(PauseMixin, BaseScreen):
             p.text(f"{pl.wins}W {pl.losses}L" + (f"  🔥{pl.streak}" if pl.streak > 1 else ""), x + 14, y + 92,
                    18, a.theme.text_dim)
         if len(rnd.players) < len(s.players):
-            out = [s.player(q).name for q in s.players_ids() if q not in rnd.players] if hasattr(
-                s, "players_ids") else [q.name for q in s.players if q.id not in rnd.players]
+            out = [q.name for q in s.players if q.id not in rnd.players]
             p.text("Sitting out: " + ", ".join(out), m + 20, 570, 20, a.theme.text_dim)
 
 
@@ -769,7 +767,6 @@ class ShopScreen(PauseMixin, BaseScreen):
                 self.sound("start")
 
     def draw_body(self, p):
-        a = self.app
         m = p.margin
         n = len(self.pids)
         gap = 14

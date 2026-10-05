@@ -88,7 +88,7 @@ class MenuScreen(BaseScreen):
         self.list.handle(None)
 
     def activate(self, row):
-        label, callback, enabled = row[0], row[1], row[2] if len(row) > 2 else True
+        callback, enabled = row[1], row[2] if len(row) > 2 else True
         if not enabled or callback is None:
             self.sound("error")
             return

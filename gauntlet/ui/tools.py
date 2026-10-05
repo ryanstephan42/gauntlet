@@ -19,7 +19,7 @@ from ..layout import DESIGN_H, DESIGN_W
 from ..memlab import FILTERS, MAX_REGION, RamSearch, Watch
 from ..memory import Memory, Var, parse_int, var_for
 from ..packs import export_pack, import_pack
-from ..presets import TEMPLATES, game_from_preset, generic_items, match_presets, normalize_title, template
+from ..presets import TEMPLATES, game_from_preset, generic_items, match_presets, template
 from ..retroarch import COMMANDS, Launcher
 from ..schema import validate_game
 from ..stats import ACHIEVEMENTS

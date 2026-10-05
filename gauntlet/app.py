@@ -1,37 +1,47 @@
+"""Entry point: load settings, open the pygame UI on the main menu."""
+import argparse
 import logging
+import os
+import sys
 
-import pygame
-
-from .games import load_games
 from .log import setup_logging
-from .match import MatchError, play_match
-from .settings import load_settings
-from .ui_shop import run_shop
+from .paths import default_state_dir, ensure_dir
+from .settings import SETTINGS_FILE, load_settings
 
 log = logging.getLogger("gauntlet.app")
 
 
-def main():
-    setup_logging()
-    settings = load_settings()
-    games, problems = load_games(settings.data_dir)
-    for name, errs in problems.items():
-        print(f"Skipped {name}: " + "; ".join(errs))
-    if not games:
-        print("No valid games found!")
-        return 1
+def settings_location(path=None):
+    """Explicit path > ./settings.json (portable/dev checkout) > per-user state dir."""
+    if path:
+        return os.path.abspath(os.path.expanduser(path))
+    if os.path.exists(SETTINGS_FILE):
+        return os.path.abspath(SETTINGS_FILE)
+    return os.path.join(default_state_dir(), SETTINGS_FILE)
 
-    pygame.init()
-    flags = pygame.FULLSCREEN if settings.fullscreen else 0
-    screen = pygame.display.set_mode((settings.width, settings.height), flags)
-    game = games[0]  # TODO(phase 2): game selection
-    purchases, _remaining, start = run_shop(screen, game, settings.starting_points)
-    if start:
-        try:
-            play_match(game, purchases, settings)
-        except MatchError as e:
-            log.error("Match failed: %s", e)
-            print(f"Match failed: {e}")
-            return 1
-    pygame.quit()
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(prog="gauntlet", description="Couch-competitive retro gaming gauntlet")
+    ap.add_argument("--settings", help="settings.json to use (created on first save)")
+    ap.add_argument("--windowed", action="store_true", help="ignore the fullscreen setting")
+    ap.add_argument("--no-sound", action="store_true", help="disable audio")
+    ap.add_argument("--debug", action="store_true", help="verbose logging")
+    return ap.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    path = settings_location(args.settings)
+    settings = load_settings(path)
+    log_file = os.path.join(ensure_dir(settings.state_path), "gauntlet.log")
+    setup_logging(logging.DEBUG if args.debug else logging.INFO, log_file)
+    ensure_dir(os.path.dirname(path))
+    if args.windowed:
+        settings.fullscreen = False
+    log.info("Settings: %s, games: %s, state: %s", path, settings.data_path, settings.state_path)
+
+    from .ui import flow
+    from .ui.app import App
+    app = App(settings, settings_path=path, audio=not args.no_sound)
+    app.run(flow.MainMenu)
     return 0
