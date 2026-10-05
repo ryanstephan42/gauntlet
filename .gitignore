@@ -6,3 +6,6 @@ settings.json
 .venv/
 state/
 *.tmp
+build/
+dist/
+*.egg-info/

@@ -5,7 +5,7 @@ import os
 import sys
 
 from .log import setup_logging
-from .paths import default_state_dir, ensure_dir
+from .paths import default_state_dir, ensure_dir, is_frozen, seed_data_dir
 from .settings import SETTINGS_FILE, load_settings
 
 log = logging.getLogger("gauntlet.app")
@@ -38,6 +38,10 @@ def main(argv=None):
     ensure_dir(os.path.dirname(path))
     if args.windowed:
         settings.fullscreen = False
+    if is_frozen():
+        seeded = seed_data_dir(settings.data_path)
+        if seeded:
+            log.info("Installed bundled games into %s: %s", settings.data_path, ", ".join(seeded))
     log.info("Settings: %s, games: %s, state: %s", path, settings.data_path, settings.state_path)
 
     from .ui import flow
