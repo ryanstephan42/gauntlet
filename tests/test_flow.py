@@ -138,7 +138,8 @@ def make_app(tmp_path, monkeypatch, script=None, game=GAME, write_game=True):
     monkeypatch.setattr("gauntlet.match.udev_keyboard_available", lambda: False)
     st = Settings(data_dir=str(data), state_dir=str(tmp_path / "state"), start_states_dir=str(tmp_path / "ss"), core_dir=str(cores),
                   rom_dir=str(tmp_path), retroarch_port=free_port(), poll_interval=0.05, close_delay=0.1,
-                  boot_timeout=15, sound=False, split_keyboard=True, starting_points=10)
+                  boot_timeout=15, sound=False, split_keyboard=True, starting_points=10,
+                  start_countdown=0)
     launcher = Launcher(st, installs=[Install("Fake", [sys.executable, "-m", "gauntlet.fakera"])])
     app = App(st, launcher=launcher, size=(1280, 720), audio=False, settings_path=str(tmp_path / "settings.json"))
     app.manager.push(flow.MainMenu(app))
@@ -255,6 +256,26 @@ def test_wide_match_window_draws_the_scoreboard_strip(driver, monkeypatch):
             painter.set_surface(d.app.screen)
     assert len(calls) == 1 and abs(calls[0] - 1280 * 354 / 2560) < 1e-6
     d.wait_for(lambda: isinstance(d.screen, flow.ResultsScreen), what="results")
+
+
+def test_match_screen_shows_the_start_countdown(driver):
+    import pygame
+    d = driver
+    d.app.settings.start_countdown = 2
+    start_session(d)
+    match = shop_and_launch(d)
+    seen = set()
+    d.wait_for(lambda: (seen.add(match.count()), match.snap.get("phase") == "playing")[1], what="playing")
+    assert {"2", "1", "GO!"} <= seen, seen
+    assert match.headline() in ("GO!", "FIGHT!")
+    surf = pygame.Surface((2560, 354))
+    d.app.painter.set_surface(surf)
+    try:
+        match.draw(surf)
+    finally:
+        d.app.painter.set_surface(d.app.screen)
+    d.wait_for(lambda: isinstance(d.screen, flow.ResultsScreen), what="results")
+    assert match.count() is None
 
 
 def test_manual_challenge_reports_result(driver):

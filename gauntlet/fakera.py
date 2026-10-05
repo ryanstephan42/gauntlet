@@ -31,6 +31,9 @@ class FakeRetroArch:
         self.content, self.system = content, system
         self.boot_delay = boot_delay
         self.paused = False
+        self.paused_at = None
+        self.entry_slot = None
+        self.paused_total = 0.0  # scripted events run on game time, which stops while paused
         self.running = True
         self.messages = []
         self.commands = []
@@ -97,11 +100,20 @@ class FakeRetroArch:
             self.messages.append(text[9:])
         elif cmd == "PAUSE_TOGGLE":
             self.paused = not self.paused
+            if self.paused:
+                self.paused_at = time.monotonic()
+            else:
+                self.paused_total += time.monotonic() - self.paused_at
+        elif cmd == "LOAD_STATE" and self.entry_slot:
+            self.load_entry_state(self.entry_slot)
+        elif cmd == "FRAMEADVANCE" and self.paused:
+            self.paused_total -= 1 / 60
         elif cmd == "QUIT":
             self.running = False
         return None
 
     def load_entry_state(self, slot):
+        self.entry_slot = slot
         path = os.path.join(self.state_dir or "", f"{self.content}.state{slot}")
         self._log(f"ENTRY_STATE {os.path.basename(path)} {'ok' if os.path.isfile(path) else 'missing'}")
         try:
@@ -123,11 +135,11 @@ class FakeRetroArch:
     def serve(self, events=(), exit_at=None):
         events = sorted(events, key=lambda e: e["at"])
         while self.running:
-            now = time.monotonic() - self.started
+            now = (self.paused_at if self.paused else time.monotonic()) - self.started - self.paused_total
             while events and events[0]["at"] <= now:
                 e = events.pop(0)
                 self.poke(int(e["address"]), e["bytes"])
-            if exit_at is not None and now >= exit_at:
+            if exit_at is not None and time.monotonic() - self.started >= exit_at:
                 break
             try:
                 data, addr = self.sock.recvfrom(65536)

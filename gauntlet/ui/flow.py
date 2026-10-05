@@ -1,6 +1,7 @@
 """Gameplay flow screens: menu, player setup, game select, shop, match, results, standings."""
 import logging
 import os
+import time
 
 from ..economy import PlayerCart, needs_target_pick, resolve_targets
 from ..games import get_challenge
@@ -958,6 +959,7 @@ class MatchScreen(BaseScreen):
         self.hold = {}
         self.done = False
         self.max_seen = {}
+        self._last_count = None
 
     def participants(self):
         return make_participants(self.app, [(pid, self.session.player(pid)) for pid in self.rnd.players])
@@ -1046,6 +1048,10 @@ class MatchScreen(BaseScreen):
             if v is not None:
                 self.max_seen[k] = max(self.max_seen.get(k, 0), v)
         self._check_forfeit(dt)
+        count = self.count()
+        if count != self._last_count and count is not None:
+            self.app.audio.play("go" if count == "GO!" else "count")
+        self._last_count = count
         phase = self.snap["phase"]
         if not self.runner.finished:
             return
@@ -1122,8 +1128,19 @@ class MatchScreen(BaseScreen):
                 out.append((pu.item.get("name", pu.item.get("id", "?")), pu.item.get("category") != "debuff"))
         return out
 
+    def count(self):
+        """"3", "2", "1" while the paused game counts down, "GO!" for a second after, else None."""
+        s = self.snap
+        if s.get("phase") == "countdown" and s.get("countdown"):
+            return str(s["countdown"])
+        if s.get("go_at") is not None and time.monotonic() - s["go_at"] < 1.0 and not self.runner.finished:
+            return "GO!"
+        return None
+
     def headline(self):
         s = self.snap
+        if self.count():
+            return self.count()
         phase, turn = s.get("phase"), s.get("turn")
         big = {"launching": "Launching...", "waiting": "Starting RetroArch...", "playing": "FIGHT!",
                "finished": "Finished!", "no_verdict": "Match over", "error": "Error", "cancelled": "Cancelled",
@@ -1176,9 +1193,12 @@ class MatchScreen(BaseScreen):
         p.text(self.subtitle or self.title, cx + center_w / 2, y, 22, th.accent, "center", bold=True,
                width=center_w)
         y += 30
-        clock = self.clock()
-        p.text(clock or self.headline(), cx + center_w / 2, y, 34 if clock else 26, th.text, "center",
-               bold=True, width=center_w)
+        count, clock = self.count(), self.clock()
+        if count:
+            p.text(count, cx + center_w / 2, y - 6, 48, th.accent, "center", bold=True, width=center_w)
+        else:
+            p.text(clock or self.headline(), cx + center_w / 2, y, 34 if clock else 26, th.text, "center",
+                   bold=True, width=center_w)
         y += 44
         warn = self.snap.get("warnings", [])
         msg = ("⚠ " + warn[-1]) if warn else (self.snap.get("message") or "")

@@ -228,6 +228,9 @@ class RetroArchClient:
     def pause_toggle(self):
         self.send("PAUSE_TOGGLE", expect_reply=False)
 
+    def frame_advance(self):
+        self.send("FRAMEADVANCE", expect_reply=False)
+
     def quit(self):
         for _ in range(2):
             self.send("QUIT", expect_reply=False)

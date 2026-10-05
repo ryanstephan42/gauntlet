@@ -77,6 +77,7 @@ On Hyprland or Sway, every match (versus, turns, races) is arranged as one scree
   - The panel also lists the power-ups that affect that player: buffs in green, debuffs in red.
   - The middle shows the challenge, the clock and its description.
 - On Hyprland each player's game window gets a border in their colour (`match_border` px, 0 = off).
+- Every match (each turn, and all race windows together) starts with a countdown: each RetroArch is paused as soon as it answers, rewound to the challenge's start state so every window sits on the same frame, and released together on GO. The 3-2-1 shows big in the strip, or as a RetroArch message when there is no strip. The referee clock starts at GO (`start_countdown` seconds, 0 = off).
   A versus window shared by both players has no player border.
 - When the match ends, Gauntlet's window goes back to how it was (tiled, floating or fullscreen).
 - Turn it off with `stage_layout: false` ("Match layout" in Settings) to get the old behaviour:
@@ -95,7 +96,7 @@ Missing keys use defaults; invalid values are logged and ignored.
 | Display/input | `fullscreen`, `width`, `height`, `tv_mode`, `sound`, `volume`, `split_keyboard`, `key_bindings`, `button_bindings` (Settings → Remap menu controls) |
 | Matches | `boot_timeout`, `poll_interval`, `close_delay`, `assign_ports` |
 | Races | `simultaneous_play`, `race_input_driver` (`""` = auto: `udev` when readable), `race_mute_others`, `race_place_windows` (float match windows into place) |
-| Match layout | `stage_layout` (games on top, scoreboard strip below; Hyprland/Sway), `stage_hud_percent` (strip height, 10–50), `match_border` (player-colour window border px, Hyprland) |
+| Match layout | `stage_layout` (games on top, scoreboard strip below; Hyprland/Sway), `stage_hud_percent` (strip height, 10–50), `match_border` (player-colour window border px, Hyprland), `start_countdown` (seconds of 3-2-1 over the paused first frame, 0–10, 0 = off) |
 
 Tip: `retroarch_overrides` is the escape hatch for RetroArch quirks on your machine. For example,
 if a device that isn't a gamepad shows up as joystick 0 and steals player 1's port, try

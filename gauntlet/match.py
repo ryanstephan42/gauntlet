@@ -216,6 +216,7 @@ class Instance:
     memory: object = None
     ctx: object = None
     sched: object = None
+    slot: object = None
     alive: bool = True
 
 
@@ -256,7 +257,8 @@ class MatchRunner:
         self.turn_results = []
         self._snap = {"phase": "idle", "message": "", "values": {}, "remaining": None,
                       "elapsed": 0.0, "turn": None, "warnings": [], "verdict": None,
-                      "race": self.race.race, "players": {}, "stage": self.stage, "hud": None}
+                      "race": self.race.race, "players": {}, "stage": self.stage, "hud": None,
+                      "countdown": None, "go_at": None}
 
     # -- UI API -----------------------------------------------------------------
     def start(self):
@@ -361,13 +363,15 @@ class MatchRunner:
     def _play_once(self, core, rom, turn_player=None):
         tag = f"{self.game['meta']['name']}" + (f" - {turn_player.name}'s turn" if turn_player else "")
         self._set(phase="launching", message=f"Launching {tag}", turn=turn_player.key if turn_player else None,
-                  values={}, remaining=None, elapsed=0.0)
+                  values={}, remaining=None, elapsed=0.0, countdown=None, go_at=None)
         extra = build_config(self.participants, self.purchases, self.settings,
                              turn_player.key if turn_player else None)
         if self._rects:
             extra.update(window_config(self._rects[0]))
-        cfg = self.launcher.write_config("match", extra)
         slot = self._stage_start_state(rom)
+        if slot:
+            extra["state_slot"] = slot  # so LOAD_STATE can rewind to the start state
+        cfg = self.launcher.write_config("match", extra)
         try:
             self.process = self.launcher.launch(core, rom, cfg, entry_slot=slot)
         except OSError as e:
@@ -383,9 +387,14 @@ class MatchRunner:
             if self.process.poll() is not None:
                 raise MatchError("RetroArch exited during startup (see retroarch.log in the state folder)")
             raise MatchError("RetroArch did not respond; is network_cmd_enable allowed?")
+        counting = self.settings.start_countdown > 0
+        if counting:
+            self._hold(self.client, True, rewind=bool(slot))
         if self._placer and self._rects:
             self._placer.refresh()
         try:
+            if counting:
+                self._countdown([self.client])
             return self._referee_loop(turn_player)
         finally:
             self._close()
@@ -476,6 +485,45 @@ class MatchRunner:
             return ref.stop(time.monotonic() - start, "forfeit" if self._forfeit else "closed early")
         return None
 
+    def _hold(self, client, paused, rewind=False):
+        """Pause or resume one RetroArch. PAUSE_TOGGLE only toggles, so check the status around it.
+
+        rewind reloads the start state once paused: each window ran for however long its boot was
+        noticed, and this puts every one back on the same frame."""
+        for _ in range(3):
+            st = client.status()
+            if st is None or not st.running:
+                return False
+            if (st.state == "PAUSED") == paused:
+                if rewind:
+                    client.command("LOAD_STATE")
+                return True
+            client.pause_toggle()
+            time.sleep(0.05)
+        log.warning("Could not %s RetroArch", "pause" if paused else "resume")
+        return False
+
+    def _countdown(self, clients):
+        """Show 3-2-1 over the paused first frame, then resume every game at the same moment.
+
+        A paused RetroArch draws nothing new, so each tick advances one frame: that paints the loaded
+        start state into the (freshly placed) window, plus the OSD number when Gauntlet's strip isn't
+        on screen to show it."""
+        for n in range(int(self.settings.start_countdown), 0, -1):
+            self._set(phase="countdown", countdown=n, message=f"Get ready... {n}")
+            for c in clients:
+                if not self.stage:
+                    c.show_msg(str(n))
+                c.frame_advance()
+            if self._cancel.wait(1.0) or self._end.is_set():
+                break
+        for c in clients:  # one toggle each first, back to back, so nobody starts early
+            c.pause_toggle()
+        self._set(countdown=0, go_at=time.monotonic())
+        for c in clients:
+            self._hold(c, False)
+            c.show_msg("GO!")
+
     def _border(self, participant):
         """(rgb, width) for a window that belongs to one player; None for a shared window."""
         width = self.settings.match_border
@@ -519,10 +567,12 @@ class MatchRunner:
             folder = f"p{i + 1}"
             extra = race_config(self.participants, self.purchases, self.settings, i, rects[i],
                                 self.race.input_driver)
+            inst.slot = self._stage_start_state(rom, self.settings.sub_state("states", folder))
+            if inst.slot:
+                extra["state_slot"] = inst.slot
             cfg = self.launcher.write_config(f"race_{folder}", extra, port=inst.port, folder=folder)
-            slot = self._stage_start_state(rom, self.settings.sub_state("states", folder))
             try:
-                inst.process = self.launcher.launch(core, rom, cfg, entry_slot=slot,
+                inst.process = self.launcher.launch(core, rom, cfg, entry_slot=inst.slot,
                                                     log_name=f"retroarch_{folder}.log")
             except OSError as e:
                 raise MatchError(f"cannot launch RetroArch: {e}")
@@ -541,9 +591,14 @@ class MatchRunner:
                 if inst.process.poll() is not None:
                     raise MatchError(f"{who} exited during startup")
                 raise MatchError(f"{who} did not respond on port {inst.port}")
+            if self.settings.start_countdown > 0:
+                # freeze it while the others boot, rewound to the exact start frame so nobody is ahead
+                self._hold(inst.client, True, rewind=bool(inst.slot))
         if placer:
             placer.refresh()
         try:
+            if self.settings.start_countdown > 0:
+                self._countdown([inst.client for inst in self.instances])
             return self._race_loop()
         finally:
             self._close_race()

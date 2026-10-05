@@ -181,7 +181,8 @@ def setup(tmp_path, monkeypatch, script, n=2):
     monkeypatch.setenv("GAUNTLET_FAKE_LOG", str(tmp_path / "fake{port}.log"))
     monkeypatch.setenv("PYTHONPATH", REPO)
     st = Settings(state_dir=str(tmp_path / "state"), core_dir=str(cores), retroarch_port=base,
-                  poll_interval=0.05, close_delay=0.1, boot_timeout=10, start_states_dir=str(tmp_path / "ss"))
+                  poll_interval=0.05, close_delay=0.1, boot_timeout=10, start_states_dir=str(tmp_path / "ss"),
+                  start_countdown=0)
     launcher = Launcher(st, installs=[Install("Fake", [sys.executable, "-m", "gauntlet.fakera"])])
     game = normalize_game({"schema_version": 2,
                            "meta": {"name": "Fake", "system": "snes", "core": "fake", "rom": str(rom)},
@@ -222,6 +223,21 @@ def test_race_first_to_goal_closes_every_window(tmp_path, monkeypatch):
     assert cfg_b["network_cmd_port"] == str(st.retroarch_port + 1)
     assert cfg_b["savestate_directory"].endswith(os.path.join("states", "p2"))
     assert cfg_b["input_player1_joypad_index"] == "1"
+
+
+def test_race_countdown_pauses_every_window_and_releases_them_together(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [
+        {"boot_delay": 0.2, "events": [{"at": 1.5, "address": 0x10, "bytes": [5]}]},
+        {"boot_delay": 1.5, "events": [{"at": 2.0, "address": 0x10, "bytes": [5]}]}]})
+    st.start_countdown = 1
+    runner = MatchRunner(launcher, game, REACH, [pad("a", 0), pad("b", 1)], [], st)
+    snap = run(runner)
+    # Without the hold A's early boot would win it; frozen on its first frame, A gets no head start
+    assert snap["phase"] == "finished" and runner.verdict.winners == ["b"], snap
+    for log in logs:
+        cmds = [line for line in log.read_text().splitlines()
+                if line.startswith(("PAUSE_TOGGLE", "SHOW_MSG", "FRAMEADVANCE"))]
+        assert cmds[:5] == ["PAUSE_TOGGLE", "SHOW_MSG 1", "FRAMEADVANCE", "PAUSE_TOGGLE", "SHOW_MSG GO!"], cmds
 
 
 class FakePlacer:
@@ -279,6 +295,7 @@ def test_race_windows_are_placed_on_their_tiles(tmp_path, monkeypatch):
 def test_race_stage_layout_games_on_top_scoreboard_below(tmp_path, monkeypatch):
     st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [
         {"events": [{"at": 1.5, "address": 0x10, "bytes": [5]}]}, {}]})
+    st.start_countdown = 1
     backend = FakePlacer()
     runner = MatchRunner(launcher, game, REACH, [pad("a", 0), pad("b", 1)], [], st, placer=backend)
     backend.runner = runner
@@ -291,6 +308,9 @@ def test_race_stage_layout_games_on_top_scoreboard_below(tmp_path, monkeypatch):
     assert snap["hud"] == (1000, 770, 2000, 250)
     assert ("gauntlet", "focus") not in backend.calls  # only game windows are focused
     assert backend.calls[-1] == ("gauntlet", "restore", False)  # put back before the result shows
+    for log in logs:  # the strip shows the countdown, so RetroArch's OSD stays clean
+        text = log.read_text()
+        assert "FRAMEADVANCE" in text and "SHOW_MSG 1" not in text and "SHOW_MSG GO!" in text
 
 
 class BorderPlacer(FakePlacer):
@@ -363,6 +383,22 @@ def test_race_start_state_in_every_window(tmp_path, monkeypatch):
         assert "ENTRY_STATE game.state1 ok" in log.read_text()
     for folder in ("p1", "p2"):
         assert os.path.isfile(os.path.join(st.sub_state("states", folder), "game.state1"))
+        assert read_cfg(os.path.join(st.sub_state("retroarch"), f"race_{folder}.cfg"))["state_slot"] == "1"
+
+
+def test_countdown_rewinds_every_window_to_the_start_state(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [{}, {}]})
+    st.start_countdown = 1
+    os.makedirs(st.start_states_dir)
+    with open(os.path.join(st.start_states_dir, "s.state"), "w") as f:
+        json.dump([{"address": 0x10, "bytes": [5]}], f)
+    runner = MatchRunner(launcher, game, dict(REACH, start_state="s.state"), [pad("a", 0), pad("b", 1)], [], st)
+    snap = run(runner)
+    assert snap["phase"] == "finished" and runner.verdict.draw
+    for log in logs:
+        lines = [x for x in log.read_text().splitlines() if x.split()[0] in ("PAUSE_TOGGLE", "LOAD_STATE", "ENTRY_STATE")]
+        assert lines[:4] == ["ENTRY_STATE game.state1 ok", "PAUSE_TOGGLE", "LOAD_STATE",
+                             "ENTRY_STATE game.state1 ok"], lines
 
 
 def start_playing(runner):

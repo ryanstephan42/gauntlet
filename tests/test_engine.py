@@ -429,7 +429,7 @@ def _e2e_setup(tmp_path, monkeypatch, script):
     monkeypatch.setenv("GAUNTLET_FAKE_LOG", str(tmp_path / "fake.log"))
     monkeypatch.setenv("PYTHONPATH", REPO)
     st = Settings(state_dir=str(tmp_path / "state"), core_dir=str(cores), retroarch_port=free_port(),
-                  poll_interval=0.05, close_delay=0.1, boot_timeout=10)
+                  poll_interval=0.05, close_delay=0.1, boot_timeout=10, start_countdown=0)
     launcher = Launcher(st, installs=[Install("Fake", [sys.executable, "-m", "gauntlet.fakera"])])
     game = normalize_game({"schema_version": 2,
                            "meta": {"name": "Fake", "system": "snes", "core": "fake", "rom": str(rom)},
@@ -461,6 +461,51 @@ def test_match_runner_versus_e2e(tmp_path, monkeypatch):
     assert "WRITE_CORE_MEMORY 20 2A" in log
     assert "Bob wins!" in log
     assert "QUIT" in log
+    assert runner.process.poll() is not None
+
+
+def test_countdown_holds_the_first_frame_then_starts_the_clock(tmp_path, monkeypatch):
+    script = {"ram_size": 0x1000, "boot_delay": 0.2, "events": [{"at": 2.0, "address": 0x11, "bytes": [3]}]}
+    st, launcher, game = _e2e_setup(tmp_path, monkeypatch, script)
+    st.start_countdown = 2
+    ch = {"id": "c", "name": "C", "mode": "versus", "min_time": 0, "on_timeout": "compare",
+          "metric": {"address": {"1": "0x10", "2": "0x11"}}, "win": {"type": "reach", "value": 3}}
+    runner = MatchRunner(launcher, game, ch, [Participant("a", "Ann", 1), Participant("b", "Bob", 2)], [], st)
+    runner.start()
+    phases = set()
+    deadline = time.monotonic() + 20
+    while not runner.finished and time.monotonic() < deadline:
+        snap = runner.snapshot()
+        if snap["phase"] == "countdown":
+            phases.add(snap["countdown"])
+        time.sleep(0.05)
+    snap = _wait(runner)
+    assert snap["phase"] == "finished" and runner.verdict.winners == ["b"]
+    assert phases == {1, 2}
+    assert snap["go_at"] is not None
+    # The fake's game clock was frozen during the 2 s countdown, so the score landed well after GO
+    assert snap["elapsed"] >= 1.0, snap["elapsed"]
+    cmds = [line for line in (tmp_path / "fake.log").read_text().splitlines()
+            if line.startswith(("PAUSE_TOGGLE", "SHOW_MSG", "FRAMEADVANCE"))]
+    assert cmds[:7] == ["PAUSE_TOGGLE", "SHOW_MSG 2", "FRAMEADVANCE", "SHOW_MSG 1", "FRAMEADVANCE",
+                        "PAUSE_TOGGLE", "SHOW_MSG GO!"], cmds
+
+
+def test_cancel_during_countdown(tmp_path, monkeypatch):
+    st, launcher, game = _e2e_setup(tmp_path, monkeypatch, {"ram_size": 0x1000, "boot_delay": 0.1})
+    st.start_countdown = 10
+    ch = {"id": "c", "name": "C", "mode": "versus", "min_time": 0, "on_timeout": "compare",
+          "metric": {"address": {"1": "0x10", "2": "0x11"}}, "win": {"type": "reach", "value": 3}}
+    runner = MatchRunner(launcher, game, ch, [Participant("a", "Ann", 1), Participant("b", "Bob", 2)], [], st)
+    runner.start()
+    deadline = time.monotonic() + 15
+    while runner.snapshot()["phase"] != "countdown" and time.monotonic() < deadline:
+        time.sleep(0.05)
+    t0 = time.monotonic()
+    runner.cancel()
+    snap = _wait(runner)
+    assert time.monotonic() - t0 < 5
+    assert snap["phase"] == "cancelled" and runner.verdict is None
     assert runner.process.poll() is not None
 
 
