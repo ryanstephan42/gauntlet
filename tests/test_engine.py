@@ -103,6 +103,27 @@ def test_client_status_and_chunked_read(client, fake):
     assert client.read_bytes(0x20000, 4) is None
 
 
+def test_client_falls_back_to_core_ram_without_memory_map():
+    ra = FakeRetroArch(port=0, ram_size=0x20000, memory_map=False)
+    ra.start_thread()
+    c = RetroArchClient("127.0.0.1", ra.port, timeout=0.3)
+    try:
+        ra.poke(0x0E00, [7, 8])
+        assert c.read_bytes(0x0E00, 2) == bytes([7, 8]) and c.ram_api
+        assert c.write_bytes(0x0E00, bytes([9])) == 1
+        assert ra.ram[0x0E00] == 9
+        assert any(cmd.startswith("WRITE_CORE_RAM e00 09") for cmd in ra.commands)
+        mem = Memory(c)
+        assert mem.write(Var(0x10, size=2), 0x1234) and mem.read(Var(0x10, size=2)) == 0x1234
+        # a write before any read also detects the fallback
+        c2 = RetroArchClient("127.0.0.1", ra.port, timeout=0.3)
+        assert c2.write_bytes(0x20, bytes([5])) == 1 and c2.ram_api and ra.ram[0x20] == 5
+        c2.close()
+    finally:
+        c.close()
+        ra.running = False
+
+
 def test_client_no_server_returns_none():
     c = RetroArchClient("127.0.0.1", free_port(), timeout=0.1)
     assert c.status() is None
@@ -419,3 +440,26 @@ def test_match_runner_port_in_use(tmp_path, monkeypatch, fake):
     runner.start()
     snap = _wait(runner)
     assert snap["phase"] == "error" and "already" in snap["message"]
+
+
+def test_mk2_preset_versus_on_core_ram(tmp_path, monkeypatch):
+    """The live-verified MK2 preset, against a fake core without a memory map (like snes9x)."""
+    from gauntlet.presets import game_from_preset, load_presets
+    script = {"ram_size": 0x4000, "boot_delay": 0.1, "memory_map": False,
+              "events": [{"at": 0.4, "address": 0x2EFC, "bytes": [0xA1]},
+                         {"at": 0.4, "address": 0x30AA, "bytes": [0xA1]},
+                         {"at": 6.0, "address": 0x2EFC, "bytes": [0]}]}
+    st, launcher, game = _e2e_setup(tmp_path, monkeypatch, script)
+    preset = next(p for p in load_presets() if p["id"] == "mk2_snes_usa")
+    game = normalize_game(game_from_preset(preset, core="fake", rom=game["meta"]["rom"]))
+    ch = game["challenges"][0]
+    jaw = next(i for i in game["shop"] if i["id"] == "glass_jaw")
+    runner = MatchRunner(launcher, game, ch, [Participant("a", "Ann", 1), Participant("b", "Bob", 2)],
+                         [Purchase(jaw, "a", ["b"])], st)
+    runner.start()
+    snap = _wait(runner, 30)
+    assert snap["phase"] == "finished"
+    assert runner.verdict.winners == ["b"] and runner.verdict.reason == "last one standing"
+    log = (tmp_path / "fake.log").read_text().upper()
+    assert "WRITE_CORE_RAM 30AA 50" in log
+    assert "READ_CORE_RAM 2EFC 1" in log

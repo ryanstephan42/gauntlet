@@ -1,0 +1,36 @@
+{
+  "id": "mk2_snes_usa",
+  "title": "Mortal Kombat II",
+  "system": "snes",
+  "match": ["mortal kombat ii", "mortal kombat 2"],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + snes9x via READ_CORE_RAM, Mortal Kombat II (USA) (Rev 1)",
+  "game": {
+    "meta": {"name": "Mortal Kombat II", "system": "snes", "core": "snes9x", "players": 2,
+             "description": "Head-to-head: first KO wins the game. Health is $A1 when full."},
+    "memory": {"layout": "linear", "endian": "little"},
+    "challenges": [
+      {"id": "first_ko", "name": "First KO", "mode": "versus", "best_of": 3,
+       "description": "Fight! The first fighter to drop to zero health loses the game.",
+       "metric": {"address": {"1": "0x2EFC", "2": "0x30AA"}, "size": 1},
+       "win": {"type": "eliminate", "value": 0}, "time_limit": 95, "on_timeout": "compare", "min_time": 1,
+       "ready": {"address": "0x30AA", "size": 1, "op": "eq", "value": 161}}
+    ],
+    "shop": [
+      {"id": "second_wind", "name": "Second Wind", "cost": 3, "category": "buff", "target": "self", "limit": 1,
+       "description": "Back to half health the first time you drop below a quarter",
+       "actions": [{"type": "memory_write", "address": {"1": "0x2EFC", "2": "0x30AA"}, "size": 1,
+                    "value": 80, "when": {"address": {"1": "0x2EFC", "2": "0x30AA"}, "size": 1,
+                                          "op": "le", "value": 40}}]},
+      {"id": "head_start", "name": "Head Start", "cost": 2, "category": "debuff", "target": "opponent",
+       "limit": 1, "description": "Opponent starts the fight with three-quarter health",
+       "actions": [{"type": "memory_write", "address": {"1": "0x2EFC", "2": "0x30AA"}, "size": 1,
+                    "value": 120, "delay": 2,
+                    "when": {"address": {"1": "0x2EFC", "2": "0x30AA"}, "size": 1, "op": "eq", "value": 161}}]},
+      {"id": "glass_jaw", "name": "Glass Jaw", "cost": 4, "category": "debuff", "target": "opponent",
+       "limit": 1, "description": "Opponent starts the fight with half health",
+       "actions": [{"type": "memory_write", "address": {"1": "0x2EFC", "2": "0x30AA"}, "size": 1,
+                    "value": 80, "delay": 2,
+                    "when": {"address": {"1": "0x2EFC", "2": "0x30AA"}, "size": 1, "op": "eq", "value": 161}}]}
+    ]
+  }
+}

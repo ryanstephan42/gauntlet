@@ -1,0 +1,116 @@
+{
+  "meta": {
+    "name": "Super Mario Kart",
+    "system": "snes",
+    "core": "snes9x",
+    "players": 1,
+    "description": "Take turns in 1P Mario GP: coin challenges.",
+    "rom": "Super Mario Kart (USA).sfc"
+  },
+  "memory": {
+    "layout": "linear",
+    "endian": "little"
+  },
+  "challenges": [
+    {
+      "id": "coin_rush",
+      "name": "Coin Rush",
+      "mode": "turns",
+      "description": "1P Mario GP: fastest to 10 coins wins.",
+      "metric": {
+        "address": "0x0E00",
+        "size": 1
+      },
+      "win": {
+        "type": "reach",
+        "value": 10
+      },
+      "time_limit": 150,
+      "on_timeout": "compare",
+      "min_time": 1,
+      "ready": {
+        "address": "0x10C1",
+        "size": 1,
+        "op": "ge",
+        "value": 127
+      }
+    },
+    {
+      "id": "coin_count",
+      "name": "Coin Count",
+      "mode": "turns",
+      "description": "Two minutes of racing each: most coins at the buzzer wins.",
+      "metric": {
+        "address": "0x0E00",
+        "size": 1
+      },
+      "win": {
+        "type": "compare",
+        "order": "high"
+      },
+      "time_limit": 120,
+      "on_timeout": "compare",
+      "min_time": 1,
+      "ready": {
+        "address": "0x10C1",
+        "size": 1,
+        "op": "ge",
+        "value": 127
+      }
+    }
+  ],
+  "shop": [
+    {
+      "id": "coin_bonus",
+      "name": "Piggy Bank",
+      "cost": 2,
+      "category": "buff",
+      "target": "self",
+      "limit": 1,
+      "description": "+3 coins as the race starts",
+      "actions": [
+        {
+          "type": "memory_write",
+          "address": "0x0E00",
+          "size": 1,
+          "op": "add",
+          "value": 3,
+          "max": 10,
+          "delay": 1,
+          "when": {
+            "address": "0x10C1",
+            "size": 1,
+            "op": "ge",
+            "value": 127
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_tax",
+      "name": "Coin Tax",
+      "cost": 2,
+      "category": "debuff",
+      "target": "opponent",
+      "limit": 1,
+      "description": "Opponent loses 3 coins once they have 6",
+      "actions": [
+        {
+          "type": "memory_write",
+          "address": "0x0E00",
+          "size": 1,
+          "op": "sub",
+          "value": 3,
+          "min": 0,
+          "when": {
+            "address": "0x0E00",
+            "size": 1,
+            "op": "ge",
+            "value": 6
+          }
+        }
+      ]
+    }
+  ],
+  "schema_version": 2
+}

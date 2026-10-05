@@ -61,7 +61,7 @@ def test_load_games_skips_bad(tmp_path):
 def test_repo_games_valid():
     games, problems = load_games("gauntlet_data")
     assert problems == {}
-    assert len(games) == 2
+    assert len(games) == 4
 
 
 def test_settings_defaults_and_bad_types(tmp_path):

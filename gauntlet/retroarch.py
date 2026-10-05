@@ -66,6 +66,9 @@ class RetroArchClient:
         self.timeout = timeout
         self.chunk = chunk
         self.retries = retries
+        # Cores without a memory map (e.g. snes9x) reject *_CORE_MEMORY; *_CORE_RAM then
+        # addresses the system RAM (SNES: offset 0 = WRAM $7E0000). Detected on first use.
+        self.ram_api = False
         self._sock = None
         self._lock = threading.Lock()
 
@@ -151,9 +154,14 @@ class RetroArchClient:
         return bytes(out)
 
     def _read_chunk(self, address, length):
-        reply = self.send(f"READ_CORE_MEMORY {address:x} {length}")
+        cmd = "READ_CORE_RAM" if self.ram_api else "READ_CORE_MEMORY"
+        reply = self.send(f"{cmd} {address:x} {length}")
         if not reply:
             return None
+        if not self.ram_api and "no memory map" in reply:
+            log.info("core has no memory map; using READ/WRITE_CORE_RAM")
+            self.ram_api = True
+            return self._read_chunk(address, length)
         parts = reply.split()
         if len(parts) < 3 or parts[2] == "-1":
             log.debug("read %x failed: %s", address, reply)
@@ -171,7 +179,17 @@ class RetroArchClient:
             part = data[offset:offset + self.chunk]
             addr = address + offset
             hexbytes = " ".join(f"{b:02X}" for b in part)
-            reply = self.send(f"WRITE_CORE_MEMORY {addr:x} {hexbytes}")
+            if self.ram_api:
+                # WRITE_CORE_RAM never replies: verify by reading back.
+                self.send(f"WRITE_CORE_RAM {addr:x} {hexbytes}", expect_reply=False)
+                reply = None
+            else:
+                reply = self.send(f"WRITE_CORE_MEMORY {addr:x} {hexbytes}")
+                if reply and "no memory map" in reply:
+                    log.info("core has no memory map; using READ/WRITE_CORE_RAM")
+                    self.ram_api = True
+                    self.send(f"WRITE_CORE_RAM {addr:x} {hexbytes}", expect_reply=False)
+                    reply = None
             if reply:
                 fields = reply.split()
                 if len(fields) >= 3 and fields[2] != "-1":
