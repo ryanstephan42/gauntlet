@@ -9,6 +9,63 @@ from ..theme import DEFAULT_THEME
 
 FONT_CANDIDATES = ("dejavusans", "notosans", "liberationsans", "arial", "freesans")
 
+# Symbols used in the UI, with fallbacks for fonts that lack them (first supported wins;
+# the last entry is plain ASCII and always used if nothing else is available).
+GLYPH_FALLBACKS = {
+    "◀": ("◄", "<"), "▶": ("►", ">"), "▲": ("^",), "▼": ("v",),
+    "←": ("<",), "→": (">",), "↑": ("^",), "↓": ("v",),
+    "✎": ("*",), "∞": ("inf",), "•": ("-",), "…": ("...",),
+}
+
+
+def placeholder_initials(title):
+    """Short label for generated cover art: first letters, keeping numbers/numerals whole."""
+    parts = []
+    for word in str(title).split()[:3]:
+        if word.isdigit() or (word.isalpha() and set(word.upper()) <= set("IVX")):
+            parts.append(word)
+        else:
+            parts.append(word[0])
+    return "".join(parts).upper()[:5] or "?"
+
+
+class GlyphFilter:
+    """Replaces characters the font file cannot draw (instead of rendering tofu boxes)."""
+
+    def __init__(self, font_path):
+        self._ft = None
+        self._cache = {}
+        try:
+            import pygame.freetype as ft
+            if not ft.get_init():
+                ft.init()
+            path = font_path or os.path.join(os.path.dirname(pygame.font.__file__),
+                                             pygame.font.get_default_font())
+            self._ft = ft.Font(path, 16)
+        except Exception:  # noqa: BLE001 - freetype missing or font unreadable: no filtering
+            self._ft = None
+
+    def has(self, ch):
+        if self._ft is None or ord(ch) < 128:
+            return True
+        if ch not in self._cache:
+            try:
+                self._cache[ch] = self._ft.get_metrics(ch)[0] is not None
+            except Exception:  # noqa: BLE001
+                self._cache[ch] = True
+        return self._cache[ch]
+
+    def __call__(self, text):
+        if self._ft is None or text.isascii():
+            return text
+        out = []
+        for ch in text:
+            if ch in GLYPH_FALLBACKS and not self.has(ch):
+                alts = GLYPH_FALLBACKS[ch]
+                ch = next((a for a in alts[:-1] if self.has(a)), alts[-1])
+            out.append(ch)
+        return "".join(out)
+
 
 class Painter:
     def __init__(self, surface, theme=DEFAULT_THEME, tv_mode=False):
@@ -17,6 +74,7 @@ class Painter:
         self._fonts = {}
         self._images = {}
         self._font_name = pygame.font.match_font(",".join(FONT_CANDIDATES))
+        self.glyphs = GlyphFilter(self._font_name)
         self.hits = []
         self.set_surface(surface)
 
@@ -54,7 +112,7 @@ class Painter:
 
     def measure(self, text, size=24, bold=False):
         """Text width in design units."""
-        return self.font(size, bold).size(str(text))[0] / max(self.layout.scale, 1e-6)
+        return self.font(size, bold).size(self.glyphs(str(text)))[0] / max(self.layout.scale, 1e-6)
 
     def fit(self, text, width, size=24, bold=False):
         text = str(text)
@@ -69,7 +127,7 @@ class Painter:
         text = str(text)
         if width:
             text = self.fit(text, width, size, bold)
-        surf = self.font(size, bold).render(text, True, color or self.theme.text)
+        surf = self.font(size, bold).render(self.glyphs(text), True, color or self.theme.text)
         if alpha < 255:
             surf.set_alpha(alpha)
         px, py = self.layout.point(x, y)
@@ -163,15 +221,16 @@ class Painter:
             t = i / max(1, r.h - 1)
             col = tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
             pygame.draw.line(self.surface, col, (r.x, r.y + i), (r.right - 1, r.y + i))
-        initials = "".join(w[0] for w in str(title).split()[:3]).upper() or "?"
+        initials = placeholder_initials(title)
         self.text(initials, x + w / 2, y + h / 2 - 30, 52, (255, 255, 255), "center", bold=True)
 
     # -- composite helpers ------------------------------------------------------------------
     def header(self, title, subtitle=None):
         m = self.margin
-        self.text(title, m, m - 4, 40, self.theme.accent, bold=True)
-        if subtitle:
-            self.text(subtitle, DESIGN_W - m, m + 8, 22, self.theme.text_dim, "right")
+        title_w = self.text(title, m, m - 4, 40, self.theme.accent, bold=True)
+        room = DESIGN_W - 2 * m - title_w - 24
+        if subtitle and room > 40:
+            self.text(subtitle, DESIGN_W - m, m + 8, 22, self.theme.text_dim, "right", width=room)
 
     def footer(self, text):
         m = self.margin

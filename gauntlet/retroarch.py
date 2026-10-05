@@ -312,6 +312,11 @@ class Launcher:
             "quit_press_twice": False,
             "savefile_directory": st.sub_state("saves"),
             "savestate_directory": st.sub_state("states"),
+            # flat, predictable state files: start states are staged as <content>.stateN
+            "sort_savestates_enable": False,
+            "sort_savestates_by_content_enable": False,
+            "savestate_auto_load": False,
+            "savestate_auto_save": False,
             "screenshot_directory": st.sub_state("screenshots"),
             "video_fullscreen": st.fullscreen,
         }
@@ -319,16 +324,21 @@ class Launcher:
     def write_config(self, name, extra=None):
         cfg = self.base_config()
         cfg.update(extra or {})
+        reserved = ("network_cmd_enable", "network_cmd_port")
+        cfg.update({k: v for k, v in (self.settings.retroarch_overrides or {}).items() if k not in reserved})
         path = os.path.join(self.settings.sub_state("retroarch"), f"{name}.cfg")
         write_cfg(path, cfg)
         return path
 
-    def command(self, core, rom, cfg_path):
+    def command(self, core, rom, cfg_path, entry_slot=None):
         inst = self.install
-        return list(inst.command) + ["-L", inst.core_arg(core), rom, "--appendconfig", cfg_path]
+        cmd = list(inst.command) + ["-L", inst.core_arg(core), rom, "--appendconfig", cfg_path]
+        if entry_slot:
+            cmd += ["--entryslot", str(entry_slot)]
+        return cmd
 
-    def launch(self, core, rom, cfg_path):
-        cmd = self.command(core, rom, cfg_path)
+    def launch(self, core, rom, cfg_path, entry_slot=None):
+        cmd = self.command(core, rom, cfg_path, entry_slot)
         log.info("Launching: %s", cmd)
         logfile = open(os.path.join(self.settings.sub_state("logs"), "retroarch.log"), "ab")
         try:

@@ -20,12 +20,15 @@ class Settings:
     retroarch_command: list = field(default_factory=list)
     retroarch_host: str = "127.0.0.1"
     retroarch_port: int = 55355
+    # Extra retroarch.cfg keys for every launch, e.g. {"input_joypad_driver": "null"}
+    retroarch_overrides: dict = field(default_factory=dict)
     # Directories (empty rom/core dir = auto-detect)
     data_dir: str = "gauntlet_data"
     rom_dir: str = ""
     core_dir: str = ""
     config_dir: str = "config"
     assets_dir: str = "assets"
+    start_states_dir: str = "start_states"
     state_dir: str = ""
     # Players / economy
     player_count: int = 2
@@ -72,6 +75,10 @@ class Settings:
         return resolve(self.assets_dir)
 
     @property
+    def start_states_path(self):
+        return resolve(self.start_states_dir)
+
+    @property
     def config_path(self):
         return resolve(self.config_dir)
 
@@ -106,6 +113,9 @@ def _range_errors(settings):
         errors["close_delay"] = "close_delay must be 0-60"
     if not _is_number(settings.volume) or not 0 <= settings.volume <= 1:
         errors["volume"] = "volume must be 0.0-1.0"
+    if not all(isinstance(k, str) and isinstance(v, (str, int, float, bool))
+               for k, v in settings.retroarch_overrides.items()):
+        errors["retroarch_overrides"] = "retroarch_overrides must map names to strings/numbers/booleans"
     if not all(isinstance(p, str) for p in settings.retroarch_command):
         errors["retroarch_command"] = "retroarch_command must be a list of strings"
     return errors

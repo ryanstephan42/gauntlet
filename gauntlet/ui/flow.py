@@ -1020,6 +1020,7 @@ class MatchScreen(BaseScreen):
             return
         self.runner.join(2)
         self.done = True
+        self.app.request_focus()
         if phase == "finished" and self.runner.verdict:
             turns = [{"player": r.player, "success": r.success, "time": r.time, "value": r.value,
                       "reason": r.reason} for r in self.runner.turn_results]

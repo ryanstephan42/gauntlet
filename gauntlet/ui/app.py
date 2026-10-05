@@ -1,6 +1,7 @@
 """Main pygame application: one loop, a screen stack, modal overlays, toasts, mouse + pads + keyboard."""
 import logging
 import os
+import warnings
 
 import pygame
 
@@ -64,6 +65,15 @@ class App:
         if getattr(self, "painter", None):
             self.painter.set_surface(self.screen)
             self.painter.tv_mode = st.tv_mode
+
+    def request_focus(self):
+        """Best effort: take keyboard focus back after RetroArch closes (compositors may refuse)."""
+        try:
+            with warnings.catch_warnings():  # pygame-ce has no non-deprecated handle to the display window yet
+                warnings.simplefilter("ignore", DeprecationWarning)
+                pygame.Window.from_display_module().focus()
+        except Exception as e:  # noqa: BLE001 - older pygame, dummy driver or no window
+            log.debug("Window focus not available: %s", e)
 
     # -- data ----------------------------------------------------------------------------------
     def reload_games(self):

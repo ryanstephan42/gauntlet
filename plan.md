@@ -48,11 +48,22 @@ Note: UDP command formats (`WRITE_CORE_MEMORY` hex values, `READ_CORE_MEMORY` re
 ## Phase 5: Polish
 Audio, animations, results/stats screen, persistent leaderboards, achievements, TV-friendly view, settings screens (input remap/audio/display), PyInstaller packaging, CI for lint+tests.
 
+## Phase 6: Simultaneous play (one emulator instance per player)
+Single-player challenges currently run as turns. Instead, every player plays the same challenge at the same time, each in their own RetroArch instance, and the first to clear it ends the race for everyone.
+1. Multi-instance launcher: one RetroArch process per player, each with its own network command port, config (only that player's controller/keys bound to port 1), savestate/SRAM folders and window. Optionally tile the windows (e.g. side by side for 2, a 2x2 grid for 3-4).
+2. Input isolation: each instance reads only its own player's input. Gamepads map one device per instance (`input_player1_joypad_index`). Keyboard players use split keyboard maps, which need a focus-independent input driver (e.g. `udev`/`raw` on Linux) or a single keyboard player. Document the limits for each platform.
+3. Parallel referee: one memory client per instance polls each player's metric. The first player to meet the win condition wins. All instances close together, or pause and then close after `close_delay`. Ready gates, time limits and `on_timeout` scoring apply per instance; on a timeout, compare players' metrics.
+4. Start states load into every instance, so all players start in the same place. Shop effects target the right instance (self vs opponents).
+5. Challenge/setting: add `mode: "race"` (simultaneous) next to `turns`. Default single-player challenges to race when enough controllers or instances are available, and fall back to turns otherwise. Add a setting to force turns.
+6. UI: a match screen showing each player's live status, then results. Crash or close handling for one instance (forfeit that player and keep the race going for the rest).
+7. Tests: the fake RetroArch running N instances on separate ports, race win and timeout cases, and a live run of 2× SM64 on RetroDECK.
+
 ## Delivery order
 1. M1: Phase 0 + Phase 1 input/screen manager.
 2. M2: Phase 2 + Phase 3 client and referee (playable 2-player loop).
 3. M3: Phase 4 wizard.
 4. M4: 3-4 player extras and Phase 5.
+5. M5: Phase 6 simultaneous play.
 
 ## Risks / decisions
 - RAM addresses per game are the hardest part; presets + watcher are key.

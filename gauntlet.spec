@@ -3,7 +3,8 @@
 a = Analysis(
     ["gauntlet.py"],
     pathex=[],
-    datas=[("gauntlet/presets", "gauntlet/presets"), ("gauntlet_data", "gauntlet_data")],
+    datas=[("gauntlet/presets", "gauntlet/presets"), ("gauntlet_data", "gauntlet_data"),
+           ("start_states", "start_states")],
     hiddenimports=[],
     excludes=["tkinter", "numpy", "pytest"],
     noarchive=False,

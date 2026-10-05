@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from .actions import Effect, EffectContext, EffectScheduler, collect_config
 from .memory import Memory, compare, is_per_player, var_for
 from .referee import Referee, TurnReferee, Verdict, forfeit_verdict, rank_turns
+from . import startstate
 
 log = logging.getLogger("gauntlet.match")
 
@@ -219,8 +220,9 @@ class MatchRunner:
         extra = build_config(self.participants, self.purchases, self.settings,
                              turn_player.key if turn_player else None)
         cfg = self.launcher.write_config("match", extra)
+        slot = self._stage_start_state(rom)
         try:
-            self.process = self.launcher.launch(core, rom, cfg)
+            self.process = self.launcher.launch(core, rom, cfg, entry_slot=slot)
         except OSError as e:
             raise MatchError(f"cannot launch RetroArch: {e}")
         self._set(phase="waiting", message="Waiting for RetroArch...")
@@ -235,6 +237,22 @@ class MatchRunner:
             return self._referee_loop(turn_player)
         finally:
             self._close()
+
+    def _stage_start_state(self, rom):
+        """Copy the challenge's start state into place (fresh for every launch/turn). -> slot or None."""
+        path, name = startstate.find_start_state(self.settings, self.challenge)
+        if not name:
+            return None
+        if not path:
+            self._warn(f"Start state '{name}' not found - booting the game normally")
+            return None
+        try:
+            startstate.stage(path, self.settings.sub_state("states"), rom)
+        except OSError as e:
+            self._warn(f"Could not use start state '{name}': {e}")
+            return None
+        log.info("Using start state %s", path)
+        return startstate.ENTRY_SLOT
 
     def _referee_loop(self, turn_player):
         mem_cfg = self.game.get("memory", {})

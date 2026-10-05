@@ -4,7 +4,7 @@ Schema v2:
   meta:       name, system, core (name or path), rom (filename or path), image, players, description
   memory:     layout (linear|swap16|swap32), endian (little|big)   [defaults from system]
   challenges: [{id, name, description, mode (versus|turns|coop|manual), metric{var},
-                win{type, value, order}, time_limit, on_timeout, best_of, min_time, ready{cond}, setup[actions]}]
+                win{type, value, order}, time_limit, on_timeout, best_of, min_time, ready{cond}, setup[actions], start_state}]
   shop:       [{id, name, cost, description, category, target, limit, actions[...]}]
 A "var" is {address (hex str or {"1": hex, "2": hex}), stride, size, signed, endian, mask, bit}.
 """
@@ -211,6 +211,10 @@ def _validate_challenge(ch, where, errors):
         errors.append(f"{where}: on_timeout must be compare, draw or lose")
     if not _is_num(ch.get("min_time")) or ch["min_time"] < 0:
         errors.append(f"{where}: min_time must be >= 0")
+    st = ch.get("start_state")
+    if st is not None and not (isinstance(st, str) and st and "/" not in st and "\\" not in st
+                               and st not in (".", "..")):
+        errors.append(f"{where}: start_state must be a plain file name (e.g. mk2_versus.state)")
     if mode == "manual":
         return
     _check_var(ch.get("metric"), f"{where}.metric", errors)

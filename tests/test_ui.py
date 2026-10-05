@@ -139,3 +139,56 @@ def test_layout_and_hints():
     assert Layout(1280, 1000).offset_y == 140
     assert hint_footer(KEYBOARD, [(Action.CONFIRM, "Select")]) == "Enter: Select"
     assert hint_footer(pad_device(0), [(Action.BACK, "Back")]) == "B: Back"
+
+
+def test_placeholder_initials():
+    from gauntlet.ui.render import placeholder_initials
+    assert placeholder_initials("Super Mario 64") == "SM64"
+    assert placeholder_initials("Mortal Kombat II") == "MKII"
+    assert placeholder_initials("Super Mario Kart") == "SMK"
+    assert placeholder_initials("") == "?"
+
+
+def test_glyph_filter_replaces_missing_symbols():
+    from gauntlet.ui.render import GlyphFilter
+
+    class FakeFont:
+        def __init__(self, have):
+            self.have = have
+
+        def get_metrics(self, text):
+            return [(0, 1, 0, 1, 1.0, 0.0) if c in self.have else None for c in text]
+
+    g = GlyphFilter.__new__(GlyphFilter)
+    g._cache = {}
+    g._ft = FakeFont("◄►")
+    assert g("◀ 3 ▶") == "◄ 3 ►"
+    assert g("x ✎") == "x *"
+    g._cache, g._ft = {}, FakeFont("◀▶✎")
+    assert g("◀ 3 ▶ ✎") == "◀ 3 ▶ ✎"
+    g._cache, g._ft = {}, FakeFont("")
+    assert g("◀ a ▶ ▲") == "< a > ^"
+    assert g("plain") == "plain"
+
+
+def test_glyph_filter_real_font():
+    import pygame
+    pygame.font.init()
+    from gauntlet.ui.render import FONT_CANDIDATES, GlyphFilter
+    g = GlyphFilter(pygame.font.match_font(",".join(FONT_CANDIDATES)))
+    out = g("◀ Gauntlet ▶ ✎ ∞")
+    assert all(g.has(ch) for ch in out)
+
+
+def test_header_subtitle_never_overlaps_title():
+    import pygame
+    pygame.font.init()
+    from gauntlet.ui.render import DESIGN_W, Painter
+    p = Painter(pygame.Surface((1280, 720)))
+    drawn = []
+    real = p.text
+    p.text = lambda *a, **k: drawn.append((a, k, real(*a, **k))) or drawn[-1][2]
+    p.header("Manage Games", "4 game(s) in " + "/very/long/path" * 20)
+    (_, _, title_w), (sub_args, sub_kw, sub_w) = drawn
+    assert sub_kw["width"] < DESIGN_W
+    assert sub_args[1] - sub_w >= p.margin + title_w
