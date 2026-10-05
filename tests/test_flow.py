@@ -1,6 +1,7 @@
 """Headless end-to-end tests of the pygame UI: drive screens with injected input, FakeRetroArch as emulator."""
 import json
 import os
+import random
 import socket
 import sys
 import time
@@ -13,7 +14,7 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 from gauntlet.inputmap import KEYBOARD, KEYBOARD2, Action, InputEvent  # noqa: E402
 from gauntlet.detect import Install  # noqa: E402
 from gauntlet.retroarch import Launcher  # noqa: E402
-from gauntlet.session import Session  # noqa: E402
+from gauntlet.session import Player, Session  # noqa: E402
 from gauntlet.settings import Settings, load_settings  # noqa: E402
 from gauntlet.ui import flow, tools  # noqa: E402
 from gauntlet.ui.app import App  # noqa: E402
@@ -28,6 +29,8 @@ GAME = {
         {"id": "ko", "name": "First to 3", "mode": "versus", "min_time": 0, "on_timeout": "compare",
          "metric": {"address": {"1": "0x10", "2": "0x11"}}, "win": {"type": "reach", "value": 3}},
         {"id": "manual", "name": "Honour system", "mode": "manual"},
+        {"id": "coins", "name": "Coin race", "mode": "turns", "min_time": 0, "time_limit": 30,
+         "metric": {"address": "0x12"}, "win": {"type": "reach", "value": 5}},
     ],
     "shop": [
         {"id": "boost", "name": "Boost", "cost": 2, "category": "buff", "target": "self", "limit": 1,
@@ -132,6 +135,7 @@ def make_app(tmp_path, monkeypatch, script=None, game=GAME, write_game=True):
     monkeypatch.setenv("GAUNTLET_FAKE_SCRIPT", str(script_path))
     monkeypatch.setenv("GAUNTLET_FAKE_LOG", str(tmp_path / "fake.log"))
     monkeypatch.setenv("PYTHONPATH", REPO)
+    monkeypatch.setattr("gauntlet.match.udev_keyboard_available", lambda: False)
     st = Settings(data_dir=str(data), state_dir=str(tmp_path / "state"), start_states_dir=str(tmp_path / "ss"), core_dir=str(cores),
                   rom_dir=str(tmp_path), retroarch_port=free_port(), poll_interval=0.05, close_delay=0.1,
                   boot_timeout=15, sound=False, split_keyboard=True, starting_points=10)
@@ -560,3 +564,45 @@ def test_osk_typing_with_pad(driver):
     d.press(Action.CONFIRM, "pad:0")                # first key on the on-screen keyboard
     d.press(Action.START, "pad:0")
     assert got and len(got[0]) == 1
+
+
+def test_single_player_race_session(tmp_path, monkeypatch):
+    """Split keyboard + udev: both players race in their own fake RetroArch; first to 5 coins wins."""
+    d = make_app(tmp_path, monkeypatch)
+    st = d.app.settings
+    players = [(0, Player(0, "A", device=KEYBOARD)), (1, Player(1, "B", device=KEYBOARD2))]
+    no_udev = flow.race_plan(d.app, players)
+    assert not no_udev.race and "input" in no_udev.note   # two keyboards need udev: take turns
+    st.race_input_driver = "udev"
+    assert flow.race_plan(d.app, players).race
+    st.retroarch_port = random.randrange(20000, 32000)    # the race uses port and port+1
+    script = {"ram_size": 0x1000, "boot_delay": 0.2,
+              "by_port": {str(st.retroarch_port + 1): {"events": [{"at": 1.0, "address": 0x12, "bytes": [5]}]}}}
+    (tmp_path / "script.json").write_text(json.dumps(script))
+    monkeypatch.setenv("GAUNTLET_FAKE_LOG", str(tmp_path / "fake{port}.log"))
+    try:
+        start_session(d, challenge_next=2)
+        assert d.screen.race.race
+        match = shop_and_launch(d)
+        assert match.runner.race.race
+        d.wait_for(lambda: match.snap.get("phase") == "playing", what="race playing")
+        assert d.screen is match
+        d.app.draw()
+        d.wait_for(lambda: isinstance(d.screen, flow.ResultsScreen), what="results")
+        assert d.screen.verdict.winners == [1] and d.screen.verdict.reason == "first to the goal"
+        assert len(match.runner.instances) == 2
+        assert all(i.process.poll() is not None for i in match.runner.instances)
+        p1 = (tmp_path / f"fake{st.retroarch_port}.log").read_text()
+        p2 = (tmp_path / f"fake{st.retroarch_port + 1}.log").read_text()
+        assert "WRITE_CORE_MEMORY 20 2A" in p1 and "WRITE_CORE_MEMORY 20" not in p2  # Boost: P1's window only
+        assert "Player 2 wins!" in p1 and "Player 2 wins!" in p2
+        assert d.screen.session.player(1).wins == 1
+        cfg = open(os.path.join(st.sub_state("retroarch"), "race_p2.cfg")).read()
+        assert 'input_driver = "udev"' in cfg and 'input_player1_up = "i"' in cfg
+        for a, b in (("racing", "finished"), ("waiting", "out"), ("done", "done")):  # every status renders
+            row = {"time": 1.5, "reason": "goal reached", "value": 5}
+            match.snap = dict(match.snap, phase="playing", values={0: 2},
+                              players={0: dict(row, status=a), 1: dict(row, status=b, value=None)})
+            match.draw_body(d.app.painter)
+    finally:
+        d.app.shutdown()

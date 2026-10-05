@@ -3,7 +3,8 @@
 Modes
   versus  all players at once; `values` maps player -> metric value
   coop    everyone together against one metric; all win or all lose
-  turns   one player at a time (TurnReferee), results ranked by rank_turns()
+  turns   single-player challenge: one player at a time (TurnReferee), results ranked by rank_turns(),
+          or everyone at once in their own emulator (RaceReferee: first to finish ends it for all)
   manual  no automatic verdict (players report the result)
 Win types: reach (>= value), equals, bit_set (metric.bit is 1),
            eliminate (player is out when value <= win.value), compare (best at time limit).
@@ -250,3 +251,85 @@ def rank_turns(challenge, results):
         return Verdict(players, [], draw=True, reason="no results", scores=scores, times=times)
     return Verdict(best, [p for p in players if p not in best], draw=len(best) > 1,
                    reason=reason, scores=scores, times=times)
+
+
+class RaceReferee:
+    """Single-player challenge played by everyone at once, one emulator each.
+
+    Each player has their own TurnReferee (own ready gate and clock). The race ends as soon as it is
+    decided: someone reaches the goal, or only one player is left in a survival race.
+    Otherwise it ends when every player has a result and is ranked like turns.
+    """
+
+    def __init__(self, challenge, players, confirm=2):
+        self.ch = challenge
+        self.win = challenge.get("win") or {}
+        self.players = list(players)
+        self.refs = {p: TurnReferee(challenge, p, confirm) for p in self.players}
+        self.verdict = None
+
+    @property
+    def results(self):
+        return [self.refs[p].result for p in self.players if self.refs[p].result]
+
+    @property
+    def started(self):
+        return any(r.started_at is not None for r in self.refs.values())
+
+    def status(self, player):
+        ref = self.refs[player]
+        r = ref.result
+        if r is None:
+            return "racing" if ref.started_at is not None else "waiting"
+        if r.reason == "goal reached":
+            return "finished"
+        return "out" if not r.success else "done"
+
+    def remaining(self, now):
+        rem = [r.remaining(now) for r in self.refs.values() if r.result is None]
+        rem = [x for x in rem if x is not None]
+        return max(rem) if rem else None
+
+    def elapsed(self, now):
+        return {p: r.result.time if r.result else round(r.elapsed(now), 2) for p, r in self.refs.items()}
+
+    def drop(self, player, now, reason="quit"):
+        """A player's emulator closed (or they gave up): they are out with what they had."""
+        if self.verdict is None and player in self.refs:
+            self.refs[player].stop(now, reason)
+            self.verdict = self._decide()
+        return self.verdict
+
+    def update(self, values, now, ready=None):
+        if self.verdict:
+            return self.verdict
+        ready = ready or {}
+        for p in self.players:
+            ref = self.refs[p]
+            if ref.result is None:
+                ref.update(values.get(p), now, ready.get(p, True))
+        self.verdict = self._decide()
+        return self.verdict
+
+    def _scores(self):
+        return {p: (r.result.value if r.result else r.last_value) for p, r in self.refs.items()}
+
+    def _decide(self):
+        wt = self.win.get("type")
+        results = {p: self.refs[p].result for p in self.players}
+        pending = [p for p, r in results.items() if r is None]
+        if wt in ("reach", "equals", "bit_set"):
+            done = [p for p, r in results.items() if r and r.reason == "goal reached"]
+            if done:  # decided the moment someone finishes; finishing on the same poll is a tie
+                return Verdict(done, [p for p in self.players if p not in done], draw=len(done) > 1,
+                               reason="first to the goal", scores=self._scores(),
+                               times={p: r.time for p, r in results.items() if r})
+        if wt == "eliminate" and len(self.players) > 1 and len(pending) == 1:
+            out = [p for p, r in results.items() if r and not r.success]
+            if len(out) == len(self.players) - 1:
+                last = pending[0]
+                return Verdict([last], out, reason="last one standing", scores=self._scores(),
+                               times={p: r.time for p, r in results.items() if r})
+        if pending:
+            return None
+        return rank_turns(self.ch, [results[p] for p in self.players])

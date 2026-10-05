@@ -3,10 +3,12 @@
 Run like RetroArch: python -m gauntlet.fakera -L core rom --appendconfig cfg
 Environment:
   GAUNTLET_FAKE_SCRIPT  JSON file: {"ram_size", "boot_delay", "exit_at", "memory_map": bool,
-                        "events": [{"at": secs, "address": int, "bytes": [..]}]}
+                        "events": [{"at": secs, "address": int, "bytes": [..]}],
+                        "by_port": {"<network_cmd_port>": {...overrides for that instance}}}
                         memory_map=false mimics cores without a memory map (e.g. snes9x):
                         READ/WRITE_CORE_MEMORY fail, READ/WRITE_CORE_RAM work.
-  GAUNTLET_FAKE_LOG     file that receives every command received (one per line)
+  GAUNTLET_FAKE_LOG     file that receives every command received (one per line);
+                        "{port}" in the name is replaced by the instance's port
 --entryslot N loads <savestate_directory>/<content>.stateN: a JSON list of {"address", "bytes"} pokes
 (logged as "ENTRY_STATE <file>"). SAVE_STATE writes <content>.state with the same format (empty list).
 """
@@ -175,10 +177,12 @@ def main(argv=None):
         with open(os.environ["GAUNTLET_FAKE_SCRIPT"]) as f:
             script = json.load(f)
     port = _port_from_cfg(args.appendconfig) if args.appendconfig else 55355
+    script.update(script.pop("by_port", {}).get(str(port), {}))
+    log_path = os.environ.get("GAUNTLET_FAKE_LOG")
     content = os.path.splitext(os.path.basename(args.rom or "Fake Game"))[0]
     fake = FakeRetroArch(port, script.get("ram_size", 0x800000), content,
                          boot_delay=script.get("boot_delay", 0.3),
-                         log_path=os.environ.get("GAUNTLET_FAKE_LOG"),
+                         log_path=log_path.replace("{port}", str(port)) if log_path else None,
                          memory_map=script.get("memory_map", True),
                          state_dir=_cfg_value(args.appendconfig, "savestate_directory") if args.appendconfig else None)
     if args.entryslot:

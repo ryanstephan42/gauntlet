@@ -66,6 +66,39 @@ class App:
             self.painter.set_surface(self.screen)
             self.painter.tv_mode = st.tv_mode
 
+    def race_windowed(self, on):
+        """Leave fullscreen while race windows are up (a fullscreen window would cover them); restore after."""
+        st = self.settings
+        if self.size or not st.fullscreen or on == getattr(self, "_race_windowed", False):
+            return
+        self._race_windowed = on
+        try:
+            # Toggle the existing window so it stays on its monitor (set_mode would move it to display 0).
+            win = pygame.Window.from_display_module()
+            if on:
+                win.set_windowed()
+                win.resizable = True
+                win.size = (st.width, st.height)
+            else:
+                win.set_fullscreen(True)
+            self.screen = pygame.display.get_surface()
+        except (pygame.error, AttributeError):
+            if on:
+                self.screen = pygame.display.set_mode((st.width, st.height), pygame.RESIZABLE)
+            else:
+                self.apply_display()
+                return
+        if getattr(self, "painter", None):
+            self.painter.set_surface(self.screen)
+
+    def desktop_size(self):
+        """Size of the first monitor (to tile race windows), or None when unknown."""
+        try:
+            sizes = pygame.display.get_desktop_sizes()
+        except (pygame.error, AttributeError):
+            return None
+        return tuple(sizes[0]) if sizes and sizes[0][0] > 0 else None
+
     def request_focus(self):
         """Best effort: take keyboard focus back after RetroArch closes (compositors may refuse)."""
         try:
@@ -160,7 +193,7 @@ class App:
         if ev.type == pygame.QUIT:
             self.quit()
             return
-        if ev.type == pygame.VIDEORESIZE and not self.settings.fullscreen and not self.size:
+        if ev.type == pygame.VIDEORESIZE and not self.size:
             self.screen = pygame.display.get_surface()
             self.painter.set_surface(self.screen)
             return

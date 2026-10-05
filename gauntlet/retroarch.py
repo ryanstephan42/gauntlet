@@ -302,16 +302,18 @@ class Launcher:
             errors.append(f"ROM not found: {meta.get('rom')}")
         return core, rom, errors
 
-    def base_config(self):
+    def base_config(self, port=None, folder=None):
+        """`port`/`folder` give a race instance its own command port and saves/states subfolder."""
         st = self.settings
+        sub = (folder,) if folder else ()
         return {
             "network_cmd_enable": True,
-            "network_cmd_port": st.retroarch_port,
+            "network_cmd_port": port or st.retroarch_port,
             "config_save_on_exit": False,
             "pause_nonactive": False,
             "quit_press_twice": False,
-            "savefile_directory": st.sub_state("saves"),
-            "savestate_directory": st.sub_state("states"),
+            "savefile_directory": st.sub_state("saves", *sub),
+            "savestate_directory": st.sub_state("states", *sub),
             # flat, predictable state files: start states are staged as <content>.stateN
             "sort_savestates_enable": False,
             "sort_savestates_by_content_enable": False,
@@ -321,8 +323,8 @@ class Launcher:
             "video_fullscreen": st.fullscreen,
         }
 
-    def write_config(self, name, extra=None):
-        cfg = self.base_config()
+    def write_config(self, name, extra=None, port=None, folder=None):
+        cfg = self.base_config(port, folder)
         cfg.update(extra or {})
         reserved = ("network_cmd_enable", "network_cmd_port")
         cfg.update({k: v for k, v in (self.settings.retroarch_overrides or {}).items() if k not in reserved})
@@ -337,15 +339,15 @@ class Launcher:
             cmd += ["--entryslot", str(entry_slot)]
         return cmd
 
-    def launch(self, core, rom, cfg_path, entry_slot=None):
+    def launch(self, core, rom, cfg_path, entry_slot=None, log_name="retroarch.log"):
         cmd = self.command(core, rom, cfg_path, entry_slot)
         log.info("Launching: %s", cmd)
-        logfile = open(os.path.join(self.settings.sub_state("logs"), "retroarch.log"), "ab")
+        logfile = open(os.path.join(self.settings.sub_state("logs"), log_name), "ab")
         try:
             return subprocess.Popen(cmd, stdout=logfile, stderr=subprocess.STDOUT,
                                     stdin=subprocess.DEVNULL)
         finally:
             logfile.close()
 
-    def client(self, **kw):
-        return RetroArchClient(self.settings.retroarch_host, self.settings.retroarch_port, **kw)
+    def client(self, port=None, **kw):
+        return RetroArchClient(self.settings.retroarch_host, port or self.settings.retroarch_port, **kw)

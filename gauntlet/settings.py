@@ -57,6 +57,13 @@ class Settings:
     poll_interval: float = 0.2
     close_delay: float = 3.0
     assign_ports: bool = True
+    # Single-player challenges: everyone plays at once, one RetroArch window each (False = take turns)
+    simultaneous_play: bool = True
+    # retroarch input_driver for race windows ("" = auto: "udev" on Linux when the keyboard is readable,
+    # so every window hears its own keys without focus)
+    race_input_driver: str = ""
+    race_mute_others: bool = True  # only player 1's window plays sound
+    race_place_windows: bool = True  # Hyprland/Sway: force race windows to float on their tile
 
     def validate(self):
         return list(_range_errors(self).values())

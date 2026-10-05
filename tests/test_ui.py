@@ -180,6 +180,37 @@ def test_glyph_filter_real_font():
     assert all(g.has(ch) for ch in out)
 
 
+def test_every_ui_glyph_has_a_fallback():
+    """Any non-ASCII character in the UI source must either render or have a GLYPH_FALLBACKS entry."""
+    import pathlib
+
+    import pygame
+    pygame.font.init()
+    from gauntlet.ui.render import FONT_CANDIDATES, GlyphFilter
+    g = GlyphFilter(pygame.font.match_font(",".join(FONT_CANDIDATES)))
+    src = "".join(f.read_text() for f in pathlib.Path("gauntlet").rglob("*.py"))
+    chars = {c for c in src if ord(c) > 127}
+    out = g("".join(sorted(chars)))
+    assert all(g.has(ch) for ch in out), [c for c in out if not g.has(c)]
+
+
+def test_glyph_filter_trophy_falls_back():
+    from gauntlet.ui.render import GlyphFilter
+
+    class FakeFont:
+        def __init__(self, have):
+            self.have = have
+
+        def get_metrics(self, text):
+            return [(0, 1, 0, 1, 1.0, 0.0) if c in self.have else None for c in text]
+
+    g = GlyphFilter.__new__(GlyphFilter)
+    g._cache, g._ft = {}, FakeFont("★")
+    assert g("🏆 Win") == "★ Win"
+    g._cache, g._ft = {}, FakeFont("")
+    assert g("🏆 ⚠ 🔥2") == "* ! streak 2"
+
+
 def test_header_subtitle_never_overlaps_title():
     import pygame
     pygame.font.init()

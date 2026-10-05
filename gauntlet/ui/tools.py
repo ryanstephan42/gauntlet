@@ -31,7 +31,7 @@ from .base import BaseScreen, Field, FormScreen, MenuScreen
 
 log = logging.getLogger("gauntlet.ui.tools")
 
-MODE_LABELS = {"versus": "Versus (simultaneous)", "turns": "Take turns", "coop": "Co-op",
+MODE_LABELS = {"versus": "Versus (simultaneous)", "turns": "Single-player (race or turns)", "coop": "Co-op",
                "manual": "Manual (players report)"}
 WIN_LABELS = {"reach": "First to reach value", "eliminate": "Eliminate (drop to value)",
               "compare": "Best value when time is up", "equals": "Value equals", "bit_set": "Bit becomes set"}
@@ -198,6 +198,15 @@ class SettingsScreen(FormScreen):
             F("close_delay", "Close delay after a result (s)", "int", int(s.close_delay), lo=0, hi=30),
             F("assign_ports", "Map player controllers to ports", "bool", s.assign_ports,
               help="Player 1's pad drives port 1, player 2's pad port 2, ..."),
+            F("simultaneous_play", "Single-player challenges", "bool", s.simultaneous_play,
+              fmt=lambda v: "Race (all at once)" if v else "Take turns",
+              help="Race: one RetroArch window per player, first to finish ends it for everyone."),
+            F("race_mute_others", "Race: only player 1's window has sound", "bool", s.race_mute_others),
+            F("race_place_windows", "Race: float windows side by side (Hyprland/Sway)", "bool",
+              s.race_place_windows),
+            F("race_input_driver", "Race: RetroArch input driver", "choice", s.race_input_driver,
+              options=["", "udev", "x", "sdl2"], labels=["Auto", "udev", "x", "sdl2"],
+              help="udev lets every window read the keyboard without focus (needs the 'input' group)."),
             F("save", "Save & back", "button", on_press=self.close),
         ]
         super().__init__(app, fields)
@@ -230,7 +239,8 @@ class SettingsScreen(FormScreen):
         for key in ("starting_points", "win_points", "loss_points", "draw_points", "catchup_step",
                     "catchup_max", "streak_bonus", "streak_max", "max_items", "wagers", "fullscreen",
                     "tv_mode", "sound", "split_keyboard", "preferred_install", "retroarch_port",
-                    "assign_ports"):
+                    "assign_ports", "simultaneous_play", "race_mute_others", "race_input_driver",
+                    "race_place_windows"):
             setattr(s, key, v[key])
         s.width, s.height = (int(n) for n in v["resolution"].split("x"))
         s.volume = v["volume"] / 100
@@ -1055,7 +1065,8 @@ class ChallengeEditor(_SubEditor):
             F("name", "Name", "text", ch.get("name", ""), max_len=32),
             F("description", "Description", "text", ch.get("description", ""), max_len=80),
             F("mode", "Mode", "choice", mode, options=list(MODE_LABELS), labels=list(MODE_LABELS.values()),
-              help="Versus: everyone plays at once. Turns: one player at a time (great for 1-player games). "
+              help="Versus: everyone plays at once in one game. Single-player: a 1-player game; everyone races "
+                   "in their own window (or takes turns when controllers are shared). "
                    "Co-op: team goal. Manual: no RAM watching, players report the result."),
         ]
         if mode != "manual":
