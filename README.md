@@ -163,3 +163,8 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy .venv/bin/python -m pytest -q
 The tests drive the whole UI headlessly against `gauntlet.fakera`, a fake RetroArch that answers
 network commands and can run as several instances for races. CI runs lint and tests on Python
 3.11–3.13 and builds PyInstaller packages for Linux and Windows.
+
+`prototypes/inwindow/` is an experiment, not part of the app: a ctypes libretro frontend that runs
+two cores inside one pygame window with the live scoreboard (`demo.py bench`, `demo.py core CORE ROM`,
+`demo.py play --auto --fullscreen --scaled`). The measurements and the N64 limitation are in
+`plan.md`, Phase 7.4.
