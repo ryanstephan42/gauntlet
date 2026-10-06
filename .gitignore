@@ -3,3 +3,10 @@ __pycache__/
 gauntlet.log
 settings.json
 .pytest_cache/
+.venv/
+state/
+*.tmp
+build/
+dist/
+*.egg-info/
+start_states/*.state*

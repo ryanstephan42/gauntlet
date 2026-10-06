@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "name": "Mario Party 3",
+    "system": "n64",
+    "core": "mupen64plus_next",
+    "players": 2,
+    "description": "Etch 'n' Catch, two human players on opposing teams with CPU teammates.",
+    "rom": "Mario Party 3 (USA).z64"
+  },
+  "memory": {
+    "layout": "swap32",
+    "endian": "big"
+  },
+  "challenges": [
+    {
+      "id": "etch_n_catch",
+      "name": "Etch 'n' Catch",
+      "mode": "versus",
+      "description": "2 vs 2 minigame (players 1+4 vs 2+3; any CPU fills the rest): the winning team takes it. Press Start on the rules screen to begin.",
+      "metric": {
+        "address": "0x0D110E",
+        "size": 2,
+        "stride": "0x38"
+      },
+      "win": {
+        "type": "reach",
+        "value": 1
+      },
+      "time_limit": 120,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x0CE203",
+        "size": 1,
+        "op": "eq",
+        "value": 18
+      },
+      "start_state": "mp3_etchncatch_explain.state"
+    }
+  ],
+  "shop": []
+}

@@ -1,0 +1,76 @@
+{
+  "id": "dkr_n64_usa_rev1",
+  "title": "Diddy Kong Racing",
+  "system": "n64",
+  "match": [
+    "diddy kong racing"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + mupen64plus_next, Diddy Kong Racing (USA) (Rev 1). Racer objects move between loads, so P1's racer is read through gRacersByPort ($11B46C -> pointer -> object): +$247 place (HUD), +$22B laps (poked 2 -> HUD 3/3), +$270 finished flag and +$245 final place (both seen on all AI racers when they finished). Verified on all seven bundled track states",
+  "game": {
+    "meta": {
+      "name": "Diddy Kong Racing",
+      "system": "n64",
+      "core": "mupen64plus_next",
+      "players": 1,
+      "description": "Race a random Tracks-mode course from any of the five worlds."
+    },
+    "memory": {
+      "layout": "swap32",
+      "endian": "big"
+    },
+    "challenges": [
+      {
+        "id": "win_race",
+        "name": "Win the Race",
+        "mode": "turns",
+        "description": "Finish first on a random track (one per world): fastest win takes it, best place if nobody wins.",
+        "metric": {
+          "address": "0x247",
+          "size": 1,
+          "pointer": {
+            "address": "0x0",
+            "mask": "0xFFFFFF",
+            "pointer": {
+              "address": "0x11B46C",
+              "mask": "0xFFFFFF"
+            }
+          },
+          "add": [
+            {
+              "address": "0x270",
+              "size": 1,
+              "pointer": {
+                "address": "0x0",
+                "mask": "0xFFFFFF",
+                "pointer": {
+                  "address": "0x11B46C",
+                  "mask": "0xFFFFFF"
+                }
+              },
+              "scale": -16
+            }
+          ]
+        },
+        "win": {
+          "type": "equals",
+          "value": -15,
+          "order": "low"
+        },
+        "time_limit": 240,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "start_state": [
+          "dkr_ancientlake_race.state",
+          "dkr_fossilcanyon_race.state",
+          "dkr_junglefalls_race.state",
+          "dkr_whalebay_race.state",
+          "dkr_snowballvalley_race.state",
+          "dkr_greenwoodvillage_race.state",
+          "dkr_spacedustalley_race.state"
+        ]
+      }
+    ],
+    "shop": []
+  }
+}

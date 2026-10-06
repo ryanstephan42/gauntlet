@@ -4,11 +4,12 @@ DESIGN_W, DESIGN_H = 1280, 720
 
 
 class Layout:
-    def __init__(self, width, height):
+    def __init__(self, width, height, design_w=DESIGN_W, design_h=DESIGN_H):
         self.width, self.height = width, height
-        self.scale = min(width / DESIGN_W, height / DESIGN_H)
-        self.offset_x = (width - DESIGN_W * self.scale) / 2
-        self.offset_y = (height - DESIGN_H * self.scale) / 2
+        self.design_w, self.design_h = design_w, design_h
+        self.scale = min(width / design_w, height / design_h)
+        self.offset_x = (width - design_w * self.scale) / 2
+        self.offset_y = (height - design_h * self.scale) / 2
 
     def px(self, value):
         return round(value * self.scale)

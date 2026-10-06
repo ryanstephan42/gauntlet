@@ -1,0 +1,51 @@
+{
+  "id": "mario_party_3_n64_usa",
+  "title": "Mario Party 3",
+  "system": "n64",
+  "match": [
+    "mario party 3"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + mupen64plus_next, Mario Party 3 (USA). Game state $0CE203 (minigame ID while playing: Etch 'n' Catch 18; 0x71 coins awarded); reward pending $0D110E + 0x38*slot (set to 10 on the winners); coins $0D1112 + 0x38*slot (13 -> 23). Teams in the bundled state: ports 1+4 (red) vs 2+3 (blue); verified P1 and P4 both went 0 -> 10 when red won",
+  "game": {
+    "meta": {
+      "name": "Mario Party 3",
+      "system": "n64",
+      "core": "mupen64plus_next",
+      "players": 2,
+      "description": "Etch 'n' Catch, two human players on opposing teams with CPU teammates."
+    },
+    "memory": {
+      "layout": "swap32",
+      "endian": "big"
+    },
+    "challenges": [
+      {
+        "id": "etch_n_catch",
+        "name": "Etch 'n' Catch",
+        "mode": "versus",
+        "description": "2 vs 2 minigame (players 1+4 vs 2+3; any CPU fills the rest): the winning team takes it. Press Start on the rules screen to begin.",
+        "metric": {
+          "address": "0x0D110E",
+          "size": 2,
+          "stride": "0x38"
+        },
+        "win": {
+          "type": "reach",
+          "value": 1
+        },
+        "time_limit": 120,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0CE203",
+          "size": 1,
+          "op": "eq",
+          "value": 18
+        },
+        "start_state": "mp3_etchncatch_explain.state"
+      }
+    ],
+    "shop": []
+  }
+}

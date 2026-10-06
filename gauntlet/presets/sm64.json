@@ -1,0 +1,290 @@
+{
+  "id": "sm64_usa",
+  "title": "Super Mario 64",
+  "system": "n64",
+  "match": [
+    "super mario 64"
+  ],
+  "verified": "RetroArch 1.22.2 + mupen64plus_next, Super Mario 64 (USA), crc32 3ce60709",
+  "game": {
+    "meta": {
+      "name": "Super Mario 64",
+      "system": "n64",
+      "core": "mupen64plus_next",
+      "players": 1,
+      "description": "Coin races, star picks across a 120-star castle, and a Bowser 3 showdown."
+    },
+    "memory": {
+      "layout": "swap32",
+      "endian": "big"
+    },
+    "challenges": [
+      {
+        "id": "coin_rush",
+        "name": "Coin Rush",
+        "mode": "turns",
+        "description": "Each player gets a turn. First to 50 coins in one course wins - fastest time takes it.",
+        "metric": {
+          "address": "0x33B218",
+          "size": 2,
+          "signed": true
+        },
+        "win": {
+          "type": "reach",
+          "value": 50
+        },
+        "time_limit": 240,
+        "on_timeout": "compare",
+        "min_time": 1,
+        "ready": {
+          "address": "0x32DDF8",
+          "size": 2,
+          "op": "eq",
+          "value": 16
+        },
+        "best_of": 1,
+        "start_state": "sm64_castle_grounds.state"
+      },
+      {
+        "id": "coin_count",
+        "name": "Coin Count",
+        "mode": "turns",
+        "description": "Two minutes each: most coins at the buzzer wins.",
+        "metric": {
+          "address": "0x33B218",
+          "size": 2,
+          "signed": true
+        },
+        "win": {
+          "type": "compare",
+          "order": "high"
+        },
+        "time_limit": 120,
+        "on_timeout": "compare",
+        "min_time": 1,
+        "ready": {
+          "address": "0x32DDF8",
+          "size": 2,
+          "op": "eq",
+          "value": 16
+        },
+        "best_of": 1,
+        "start_state": "sm64_castle_grounds.state"
+      },
+      {
+        "id": "first_star",
+        "name": "Star Sprint",
+        "mode": "turns",
+        "description": "Fastest to grab a power star (fresh save).",
+        "metric": {
+          "address": "0x33B21A",
+          "size": 2,
+          "signed": true
+        },
+        "win": {
+          "type": "reach",
+          "value": 1
+        },
+        "time_limit": 300,
+        "on_timeout": "compare",
+        "min_time": 1,
+        "ready": {
+          "address": "0x32DDF8",
+          "size": 2,
+          "op": "eq",
+          "value": 16
+        },
+        "best_of": 1,
+        "start_state": "sm64_castle_grounds.state"
+      },
+      {
+        "id": "star_pick",
+        "name": "Star Pick",
+        "mode": "turns",
+        "description": "120-star castle, every door open. Pick any painting and grab any star - first star wins. Start floor is random.",
+        "metric": {
+          "address": "0x32DD84",
+          "size": 4,
+          "signed": true
+        },
+        "win": {
+          "type": "reach",
+          "value": 1
+        },
+        "time_limit": 420,
+        "on_timeout": "compare",
+        "min_time": 1,
+        "ready": {
+          "address": "0x32DDF8",
+          "size": 2,
+          "op": "eq",
+          "value": 6
+        },
+        "best_of": 1,
+        "start_state": [
+          "sm64_castle_lobby.state",
+          "sm64_castle_upstairs.state",
+          "sm64_castle_basement.state",
+          "sm64_castle_third_floor.state"
+        ]
+      },
+      {
+        "id": "bowser3",
+        "name": "Bowser's Last Stand",
+        "mode": "turns",
+        "description": "Straight into the Bowser in the Sky arena. Throw him into three bombs and grab the Grand Star first.",
+        "metric": {
+          "address": "0x32DD84",
+          "size": 4,
+          "signed": true
+        },
+        "win": {
+          "type": "reach",
+          "value": 1
+        },
+        "time_limit": 360,
+        "on_timeout": "compare",
+        "min_time": 1,
+        "ready": {
+          "address": "0x32DDF8",
+          "size": 2,
+          "op": "eq",
+          "value": 34
+        },
+        "best_of": 1,
+        "start_state": "sm64_bowser3.state"
+      }
+    ],
+    "shop": [
+      {
+        "id": "coin_boost",
+        "name": "Coin Magnet",
+        "cost": 3,
+        "category": "buff",
+        "target": "self",
+        "limit": 1,
+        "description": "+10 coins as soon as you pick up your first coin",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x33B218",
+            "size": 2,
+            "signed": true,
+            "op": "add",
+            "value": 10,
+            "when": {
+              "address": "0x33B218",
+              "size": 2,
+              "op": "ge",
+              "value": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "extra_life",
+        "name": "1-Up",
+        "cost": 1,
+        "category": "buff",
+        "target": "self",
+        "limit": 2,
+        "description": "One extra life",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x33B21D",
+            "size": 1,
+            "op": "add",
+            "value": 1,
+            "max": 99
+          }
+        ]
+      },
+      {
+        "id": "fragile",
+        "name": "Glass Plumber",
+        "cost": 3,
+        "category": "debuff",
+        "target": "opponent",
+        "limit": 1,
+        "description": "Opponent starts with 3 health wedges",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x33B21E",
+            "size": 2,
+            "value": 768,
+            "delay": 3,
+            "when": {
+              "address": "0x33B21E",
+              "size": 2,
+              "op": "ge",
+              "value": 256
+            }
+          }
+        ]
+      },
+      {
+        "id": "coin_tax",
+        "name": "Coin Tax",
+        "cost": 2,
+        "category": "debuff",
+        "target": "opponent",
+        "limit": 1,
+        "description": "Opponent loses 5 coins once they have 10",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x33B218",
+            "size": 2,
+            "signed": true,
+            "op": "sub",
+            "value": 5,
+            "min": 0,
+            "when": {
+              "address": "0x33B218",
+              "size": 2,
+              "op": "ge",
+              "value": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "turbo",
+        "name": "Turbo Time",
+        "cost": 3,
+        "category": "chaos",
+        "target": "opponent",
+        "limit": 1,
+        "description": "Fast-forward the game for 8 seconds",
+        "actions": [
+          {
+            "type": "retroarch_command",
+            "command": "FAST_FORWARD",
+            "delay": 5,
+            "duration": 8
+          }
+        ]
+      },
+      {
+        "id": "slowmo",
+        "name": "Bullet Time",
+        "cost": 3,
+        "category": "chaos",
+        "target": "opponent",
+        "limit": 1,
+        "description": "Slow motion for 8 seconds",
+        "actions": [
+          {
+            "type": "retroarch_command",
+            "command": "SLOWMOTION",
+            "delay": 5,
+            "duration": 8
+          }
+        ]
+      }
+    ],
+    "schema_version": 2
+  }
+}

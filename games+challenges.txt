@@ -1,0 +1,315 @@
+Games + some challenges to be templated for
+
+RESEARCH NOTES (added under each game). Full address tables are in docs/ram-research.md.
+  [DONE ✅]    RAM addresses verified live in RetroDECK RetroArch (values read and poked, screen checked).
+  [PARTIAL ✅] Core addresses verified; the challenge itself needs a later save state, or some parts are RA-notes only.
+  [RA ONLY 📝] Addresses from RetroAchievements code notes, not checked live (ROM missing or needs a late save).
+  "Needs state" = the challenge starts deep in the game; make a save state there before templating.
+  [IN ROTATION 🎮] Added to Gauntlet: gauntlet_data/<slug>.json + a preset; start states go in start_states/.
+  [MULTI-LEVEL 🎲] Several start states (levels / courses / maps); each match plays one at random.
+  Addresses are in Gauntlet's preset address space (see the table at the top of docs/ram-research.md).
+
+Arcade
+3rd Strike - win match
+  [RA ONLY 📝] RA 11795. Arcade ROMs aren't in RoMM (roms/arcade is empty), so nothing was checked.
+  Key RAM: P1 rounds won 0x011380 (u16), P1 HP 0x068D08, P2 HP 0x0691A0, timer 0x011374, VS flag 0x0113B6,
+           P1/P2 human flags 0x0156E1 / 0x0156E0.
+  Win: P1 rounds won reaches 2 while P2 HP = 0. Find the P2 rounds address with the Memory Lab (probably next to P1's).
+  Other challenges: win with a perfect (0x016B4B); win a round with a super art (gauge 0x0695BC);
+           arcade run, beat N opponents; win using a random character.
+
+galaga - beat 5 stages
+  [RA ONLY 📝] RA 12138. Not in RoMM.
+  Key RAM: stage 0x001021, lives 0x001020, in-game flag 0x000C12, hits 0x001044, shots 0x001046,
+           score digits 0x0003F8-0x0003FD.
+  Win: stage >= start + 5 while 0x000C12 = 1.
+  Other challenges: perfect on a challenging stage (0x000210 = end of bonus stage); get a dual fighter (0x001027 = 1);
+           hit ratio >= 80% (hits/shots); highest score over 3 stages.
+
+breakout - beat a stage
+  [SUBSTITUTE ✅] Atari Breakout (1976) is discrete logic with no CPU or RAM, so it can't be read.
+           Use Arkanoid (NES, RoMM 507, RA 1545): bricks left 0x000F (0 = round cleared, verified),
+           round 0x0021, lives 0x000D, demo flag 0x0010.
+  Win: 0x000F reaches 0 while not in demo.
+  Other challenges: clear a round without losing a life; clear 3 rounds; fastest round clear.
+
+Nes
+MegaMan - Defeat rockMan
+  [PARTIAL ✅] RA 1448, RoMM 562. "RockMan" = Mega Man's Japanese name; the Mega Man-like boss is the Copy Robot
+           (Wily stage 2). Needs state at the Wily 2 boss door.
+  Key RAM: stage 0x0031 (7 = Copy Robot stage), health 0x006A, lives 0x00A6, boss HP 0x06C1, stage clear 0x00BB.
+  Win: 0x0031 == 7 and boss HP 0x06C1 reaches 0 while health > 0.
+  Other challenges: beat Cut Man / any Robot Master (stage 0-5) first; beat a boss with the buster only;
+           beat Yellow Devil; finish a stage without dying; collect the Magnet Beam.
+
+Tetris - get 30 line clears
+  [RA ONLY 📝] RA 2022. NES Tetris isn't in RoMM.
+  Key RAM: lines 0x0050 (BCD: 30 lines = 0x30), level 0x0044, score 0x0053-0x0055 (BCD), screen 0x00C0 (4 = game).
+  Substitute ✅: Tetris & Dr. Mario (SNES, RoMM 88): lines 0x0328/0x0329, level 0x0342, game select 0x1E0E.
+  Other challenges: score 100k; reach level 10; a Tetris (4 lines at once); B-type clear;
+           Dr. Mario: clear the viruses (0x03E7 = 0); head-to-head vs mode (0x0309 / 0x0809 wins).
+
+punchout - beat bull
+  [DONE ✅] RA 1489, RoMM 571. Writing opponent 0x0001 = 6 on the "PUSH START" screen loads the Bald Bull fight
+  [IN ROTATION 🎮] gauntlet_data/punch_out.json: Beat Bald Bull, Knockdown Derby.
+  Shop (play-test rework): Star Start (0x0342=1), Running on Empty (opponent hearts 0 + 0x048E=20 = tired),
+  Softened Up (Bull 0x0398=72); all gated on clock 0x0305 == 1 since the game resets these at the bell.
+           (verified), so no long save state is needed.
+  Key RAM: opponent 0x0001 (6 = Bald Bull), round 0x0006, Mac HP 0x0391, opponent HP 0x0398,
+           wins 0x0170/0x0171, losses 0x0172/0x0173, hearts 0x0323/0x0324.
+  Win: Mac wins counter goes up while 0x0001 == 6.
+  Other challenges: beat Glass Joe in round 1; KO without getting hit (0x0391 stays full); win with 3 stars banked;
+           beat Bald Bull 2 (0x0001 = 9); beat Mike Tyson (0x000D).
+
+battletoads - sewer race
+  [PARTIAL ✅] RA 1509, RoMM 511. The sewer race is Level 10 "Rat Race". Poking the level doesn't warp cleanly,
+           so this needs state at the start of Level 10.
+  Key RAM: level 0x0010 (1-based, 10 = Rat Race), P1 lives 0x0011 (verified), P2 lives 0x0012, health 0x051A/0x051B,
+           rat flag 0x051F, rat-race section 0x0058.
+  Win: 0x0010 goes 10 → 11 with lives > 0.
+  Other challenges: finish the Turbo Tunnel (Level 3) without dying; beat Level 1 boss (Big Blag);
+           2P co-op, finish a level with both toads alive.
+
+
+Snes
+Super mario world - beat level
+  [DONE ✅] RA 228, RoMM 78. Start state inside Yoshi's Island 1 saved.
+  [IN ROTATION 🎮] gauntlet_data/smw.json: Level Rush, Beat Yoshi's Island 1, Coin Grab.
+  [MULTI-LEVEL 🎲] 7 levels at random (YI1, DP1, DP2, DP4, Butter Bridge 1, Cookie Mountain, Choco Island 1).
+  Key RAM: game mode 0x0100 (0x14 in level), level 0x13BF, goal timer 0x1493, exit type 0x0DD5 (1 normal, 2 secret,
+           0x80 died/quit), lives 0x0DBE, coins 0x0DBF, dragon coins 0x1420.
+  Win: 0x0DD5 becomes 1 or 2 while 0x13BF is the target level.
+  Other challenges: find a secret exit (0x0DD5 = 2); all 5 Dragon Coins in a level; beat a level without
+           a power-up; beat a castle; collect 50 coins in one level.
+
+SF2 - win match
+  [RA ONLY 📝] RA 1192 (World Warrior) / RA 648 (Turbo). No SNES SF2 in RoMM.
+  Key RAM (Turbo): HP 0x0530 / 0x0730, rounds won 0x05D0 / 0x07D0, character 0x05D1 / 0x07D1,
+           control 0x05C0 / 0x07C0, battle number 0x18BD.
+  Key RAM (WW): HP 0x0C2B / 0x0E2B, rounds won 0x0CD0 / 0x0ED0.
+  Win: P1 rounds won reaches 2.
+  Other challenges: perfect round; win with a random character; beat 3 arcade opponents in a row;
+           SSF2 Turbo Revival (GBA, RoMM 191) or SFA3 (GBA, RoMM 186) as substitutes.
+
+kirby dream course - beat course
+  [DONE ✅] RA 986, RoMM 42. Start state at Course 1 hole 1 saved.
+  [IN ROTATION 🎮] gauntlet_data/kirbys_dream_course.json: Front Three, First Hole.
+  Key RAM: course 0xD7BE, hole 0x6A5E (course*8+hole), strokes 0x6A64, lives 0xD7F4, hole clear 0xDA4A,
+           screen 0x0084 (0x0500 results).
+  Win: hole 8 of the course cleared (0xDA4A = 1 on hole course*8+7) or results screen.
+  Other challenges: hole-in-one (clear with strokes = 1); finish a course under par; 2P head-to-head score
+           (0xD7E0 vs 0xD7E2); clear a hole without losing a life.
+
+super metriod
+  [DONE ✅] RA 236, RoMM 80. No challenge given. Start state at the beginning of Ceres Station saved.
+  [IN ROTATION 🎮] gauntlet_data/super_metroid.json: Escape Ceres, Ceres Energy Saver.
+  Key RAM: game state 0x0998 (8 = gameplay), room 0x079B, area 0x079F, energy 0x09C2, missiles 0x09C6,
+           items 0x09A4, IGT 0x09DA-0x09E0, boss bits 0xD828-0xD82E (Kraid 0xD829 bit0, Phantoon 0xD82B bit0, ...).
+  Proposed challenges: escape Ceres Station (area 6 → Crateria); get the Morph Ball (0x09A4 bit 2);
+           beat Bomb Torizo / Spore Spawn / Kraid (boss bits); reach Brinstar first; collect N missiles.
+
+star fox
+  [DONE ✅] RA 351, RoMM 66 (Rev 2; some RA addresses are 2 lower on Rev 2). Corneria start state saved.
+  [IN ROTATION 🎮] gauntlet_data/star_fox.json: Shield Keeper, Corneria Survivor, Clear Corneria.
+  [MULTI-LEVEL 🎲] Corneria on Level 1, 2 or 3 picked at random (3 start states).
+  Key RAM (Rev 2): in game 0x00FD, shield 0x0396, lives 0x16EC, bombs 0x15AD, stage ID 0x1FF7 (u16),
+           route 0x16D8 (0/1/2), stage-in-route 0x16D6 (verified 0 -> 1 after the Corneria boss).
+  Proposed challenges: clear Corneria (stage 0x16D6 advances); clear a stage without losing shield below 50%;
+           don't use any Nova bombs; finish a route (Level 1/2/3); keep all wingmen alive.
+
+
+PSX
+Crash bandicoot-beat level
+  [DONE ✅] RA 10434, RoMM 622. Start states on the map and inside N. Sanity Beach saved.
+  [IN ROTATION 🎮] gauntlet_data/crash_bandicoot.json: Beat N. Sanity Beach, Stage Rush, Box Breaker, Beat Papu Papu.
+  [MULTI-LEVEL 🎲] 6 island-one stages at random (Stage Rush, Box Breaker) + Papu Papu boss state.
+  Key RAM: in-stage/map 0x61994 (0 stage, 1 map), stage 0x619C5, boxes broken 0x61985, lives 0x618ED.
+  Win: 0x61994 goes 0 → 1 while 0x619C5 is the target stage.
+  Other challenges: break all boxes in a level (gem); beat Papu Papu (stage 5); finish without dying;
+           Jungle Rollers race.
+
+FF7 - beat sephoroth
+  [PARTIAL ✅] RA 11242, RoMMs 644/645/646. Battle detection verified on Disc 1. Needs state on Disc 3 before the
+           final fight.
+  Key RAM: in battle 0x062FF9, formation 0x062F54, battle end 0x0F83C6 (0x20 win, 0x22 loss), enemy HP 0x0F85AC,
+           game progress 0x09D288, Cloud HP 0x09C764.
+  Win: 0x0F83C6 = 0x20 while 0x062F54 = the Safer-Sephiroth formation (capture the ID from the save state).
+  Other challenges: beat Guard Scorpion (0x144) / Air Buster (0x16C) first; win the opening MP fight fastest;
+           beat a boss without healing; win the Fort Condor / chocobo race (RA notes).
+
+MGS - beat grey fox
+  [PARTIAL ✅] RA 11244, RoMMs 672/673 (v1.0). Basics verified; Ninja fight needs state before Otacon's lab.
+  Key RAM: game mode 0x117084, map name 0x0B7500 (ASCII), Snake HP 0x0B7526, alerts 0x0B75AC, kills 0x0B75AE,
+           continues 0x0B75BE, radar 0x0AE178 (3 = alert), Ninja HP 0x0B8CCE.
+  Win: Ninja HP reaches 0 with Snake HP > 0 and continues unchanged.
+  Other challenges: reach the heliport with no alerts (0x0B75AC = 0); no-kill section (0x0B75AE = 0);
+           beat Revolver Ocelot; finish the Dock without being spotted; VR mission clears.
+
+tekken 3 - win match
+  [DONE ✅] RA 11259, RoMM 712. Verified in Arcade.
+  [IN ROTATION 🎮] gauntlet_data/tekken3.json: Arcade Stage 1, VS Match.
+  Key RAM: screen 0x0AE224 (8 = fight), mode 0x097F40 (0 arcade, 1 VS), HP 0x0A961E / 0x0AAEAA,
+           rounds won 0x0A926C / 0x0AAAF8, rounds to win 0x0A04C2.
+  Win: P1 rounds won reaches 0x0A04C2 while screen = 8.
+  Other challenges: perfect round (HP stays 130); win with a random character; beat 3 arcade opponents;
+           Tekken Force / Tekken Ball modes.
+
+spyro - beat level
+  [DONE ✅] RA 11279, RoMM 706. Start state at Artisans saved (first dragon in ~3 s).
+  [IN ROTATION 🎮] gauntlet_data/spyro.json: Dragon Rescue, Gem Rush.
+  [MULTI-LEVEL 🎲] 5 Artisans-world levels at random (portal teleport via Spyro's position 0x078A58/5C/60).
+  Key RAM: game state 0x0757D8 (0 in game), level 0x0758B4, lives 0x07582C, gems 0x075860, dragons 0x075750,
+           dragons per level 0x0772D8 + 4n, gems per level 0x077420 + 4n.
+  Win: rescue every dragon in a level, or the boss dragon (Toasty 0x772E8 0 → 1).
+  Other challenges: first to rescue a dragon; collect N gems; beat Toasty; Sunny Flight (flight level);
+           no-death level.
+
+N64
+pokemon stadium 2 - beat other player
+  [DONE ✅] RA 10258, RoMM 367. Free Battle start state saved.
+  [IN ROTATION 🎮] gauntlet_data/pokemon_stadium_2.json: Battle Now! Face-off, Free Battle.
+  [MULTI-LEVEL 🎲] Battle Now face-off: 2P state saved before the rental teams are drawn, so teams are random.
+  Key RAM: game mode 0x09DE97 (0x10 Free Battle), battle state 0x11F301 (0x0E fighting, 0x2A over),
+           P1 team HP 0x14528E/0x1452E6/0x14533E, P2 team HP 0x14576E/0x1457C6/0x14581E (u16).
+  Win: state 0x2A with all P2 HP = 0 and some P1 HP > 0.
+  Other challenges: win with only 1 Pokémon left fainted-free (all 3 alive); win a mini-game in Mini-Game Park;
+           random rental team battle; win in under N turns.
+
+Banjo Kazooie - first to get a Jiggy
+  [DONE ✅] RA 10210, RoMM 305 (USA v1.0; RA notes need an offset). New-game state at Spiral Mountain saved. Now starts from bk_mumbos_mountain.state (warped past the tutorial, SM moves learned).
+  [IN ROTATION 🎮] gauntlet_data/banjo_kazooie.json: First Jiggy, Note Rush.
+  [MULTI-LEVEL 🎲] 5 world entrances at random, all moves (0x37B5A0 = 0xFFFFF); warp map 0x37DAF5 + load 0x37DAF4.
+  Key RAM: game state 0x37DAE4 (3 in game), map 0x37DAF5, total jiggies 0x3851E8 (u32, verified by poke),
+           health 0x3851A0, lives 0x3851A8, notes in world 0x385180.
+  Win: 0x3851E8 goes above its start value.
+  Other challenges: first to 50 notes in Mumbo's Mountain; first to collect 5 Jinjos; get a Jiggy without
+           losing health; first to reach Treasure Trove Cove.
+
+Donkey kong 64 - first to get a banana
+  [DONE ✅] RA 10075, RoMM 325. State at first control in DK's House saved. Now starts from dk64_japes_start.state (Japes entrance, training barrels done).
+  [IN ROTATION 🎮] gauntlet_data/dk64.json: First Golden Banana, Banana Bunch.
+  [MULTI-LEVEL 🎲] 5 level entrances at random, all Kongs/moves unlocked; GB/CB summed across Kongs (count/step).
+  Key RAM: game state 0x755314 (6 in game), map 0x76A0A8, DK golden bananas 0x7FC990 + 2*level
+           (Isles 0x7FC9A0 verified), DK coloured bananas 0x7FC956.
+  Win: sum of GB counters rises (first GB is in Jungle Japes / DK Isles).
+  Other challenges: first to 100 coloured bananas; first to free Diddy; Kong Battle (wins 0x744526..);
+           Rambi / Beaver Bother mini-games.
+
+Diddy kong racing - win a race
+  [DONE ✅] RA 10202 (notes don't match this ROM), RoMM 324 (USA Rev 1). Found by structure analysis.
+  [IN ROTATION 🎮] gauntlet_data/diddy_kong_racing.json: Win the Race.
+  [MULTI-LEVEL 🎲] 7 tracks at random (one+ per world); P1 racer read via pointer gRacersByPort 0x11B46C.
+           Ancient Lake race start state saved.
+  Key RAM: racer pointer table 0x1F05C0 (entry 0 = P1), position-sorted table 0x1F05F0, [ptr]+0x247 place,
+           [ptr]+0x270 finished, [ptr]+0x245 final position. Needs pointer support in presets.
+  Win: P1 finished with final position 1 (or 0x1F05F0 == 0x1F05C0 when the finish flag sets).
+  Other challenges: win on a hovercraft / plane track; collect all bananas (10) in a race; win a battle arena;
+           beat Tricky (boss race).
+
+golden eye - first to 5 kills multiplayer
+  [DONE ✅] RA 10073, RoMM 338. Temple 2P "First to 5" state saved.
+  [IN ROTATION 🎮] gauntlet_data/goldeneye.json: First to 5, Three-Minute Frag.
+  [MULTI-LEVEL 🎲] all 11 MP maps at random (MP_stage_selected 0x2B534 written on the options screen).
+  Key RAM: screen 0x02A8C0 (11 = MP match), player stats 0x079EF0 + 0x70*n, kills per victim +0x24 + 4*victim.
+  Win: score = sum(kills[others]) - kills[self] reaches 5 (referee from RAM; poked scores don't end the match).
+  Other challenges: first to 3 kills with pistols only; License to Kill mode; Facility / Dam single-player
+           objective race; fewest deaths in 3 minutes.
+
+mario party 3 - win a minigame
+  [DONE ✅] RA 10108, RoMM 351. Etch 'n' Catch explanation state saved.
+  [IN ROTATION 🎮] gauntlet_data/mario_party_3.json: Etch 'n' Catch.
+  Key RAM: game state 0x0CE203 (minigame ID while playing, 0x71 coins awarded), minigame 0x0CD068,
+           P1 reward pending 0x0D110E (stride 0x38), P1 coins 0x0D1112, stars 0x0D1116.
+  Win: during a minigame, P1 reward-pending goes 0 → >0.
+  Other challenges: most coins after N turns; first to a star; win a 1-vs-3 minigame as the 1;
+           win a Duel minigame.
+
+mario kart 64 - win a race
+  [DONE ✅] RA 10078, RoMM 350. Luigi Raceway GP start state saved.
+  [IN ROTATION 🎮] gauntlet_data/mk64.json: Win the Race, Finish Fastest.
+  [MULTI-LEVEL 🎲] 7 GP courses at random.
+  Key RAM: game state 0x0DC524 (4 racing), race status 0x0DC513 (5 finished), P1 place 0x0F6994 (0 = 1st),
+           P1 laps 0x0F6998, P2 place 0x0F776C.
+  Win: race status 5 with P1 place 0.
+  Other challenges: win a cup; win on Rainbow Road; finish without falling off; Battle mode (balloons);
+           Time Trial under a target time.
+
+smash 64 - win a match
+  [DONE ✅] RA 10082, RoMM 386. Time match (Mario vs CPU Pikachu) state saved.
+  [IN ROTATION 🎮] gauntlet_data/ssb.json: Two-Minute Brawl, Plus Three.
+  [MULTI-LEVEL 🎲] all 8 stages at random (stage byte 0x0A4D09).
+  Key RAM: screen 0x0A4AD0 (22 match, 24 results), time remaining 0x0A4D1C, player structs 0x0A4D28 + 0x74*n
+           (+0x02 kind, +0x03 char, +0x10 falls, +0x14 KOs, +0x18 + 4*victim KOs).
+  Win: screen 24 and P1 (KOs - falls) beats everyone else.
+  Other challenges: beat a level-9 CPU; win without falling; first to 3 KOs; Break the Targets / Board the
+           Platforms; win a 4-player free-for-all.
+
+GC
+  NOTE: Gauntlet has no GameCube system yet. dolphin_libretro memory reads work (RA addresses map 1:1), but the
+        core deadlocked often in RetroDECK during research. Test stability before templating.
+Luigi's mansion - catch a boo
+  [PARTIAL ✅] RA 4325, RoMM 739. Foyer start state saved. Boos appear only after Chauncey (Boo Radar), so this
+           needs state from there.
+  Key RAM: game state 0x3A3AE4 (2 playing), map 0x4D80A4 (2 mansion), Boo flags 0x3D5E04-0x3D5E0A
+           (verified: setting a bit raises the HUD Boo count), HUD Boo count *(0x4D8618)+0x09.
+  Win: number of set Boo flag bits rises.
+  Other challenges: capture a portrait ghost (Neville / Lydia); collect N gold; clear a room's lights fastest;
+           beat Chauncey.
+
+Mario kart double dash - win a race
+  [RA ONLY 📝] RA 7693, RoMM 740 (downloaded).
+  Key RAM: game state 0x3B0724 (3 in game), mode 0x3B1464 (2 GP, 3 VS), race finished 0x3CB6B2,
+           lap 0x37FF60 + 4p, place 0x37FFA0 + 4p, track 0x3B0FC8.
+  Win: finished flag with P1 place = 1st (confirm 0/1-based).
+  Other challenges: win a cup; win on Rainbow Road; balloon battle; win with a specific character pair.
+
+fzero gx - win race
+  [RA ONLY 📝] RA 9699, RoMM 733.
+  Key RAM: race status 0x378591 (bit0 finished, bit4 racing, bit6 cup won), retired 0x378592 bit5,
+           course 0x378596, race points 0x378668, total points 0x37866C.
+  Win: finished bit set and race points = the 1st-place value (no direct placement address in RA notes).
+  Other challenges: win a cup (bit 6); finish without retiring; time attack under a target; story mission 1.
+
+pikmin - have most pikmin at the end of the day
+  [RA ONLY 📝] RA 15540, RoMM 750 (USA Rev 1 addresses; a Rev 1 .ciso is also local).
+  Key RAM: game state 0x39D9AF (7 in location), day 0x39DAB4, day phase 0x39DAB0, Onion blue 0x3D1DF0 (+4 red,
+           +8 yellow), field 0x3D1EC4-0x3D1ECC, party 0x3D1E70-0x3D1E78, lost today 0x3D1E58, parts 0x1249DE7.
+  Win: highest Onion + field total when the day number increments.
+  Other challenges: fewest Pikmin lost in a day; first to collect a ship part; most sprouted (0x39D870).
+
+soul caliber 2 - win match
+  [RA ONLY 📝] RA 3536, RoMM 755.
+  Key RAM: P1 / P2 rounds won 0x34EA0D / 0x36FAAD, characters 0x34D519 / 0x36E5B9, mode 0x3F4705 / 0x3F4715,
+           arcade stage 0x3AFC93, difficulty 0x28752B.
+  Win: P1 rounds won reaches 2 (default) first.
+  Other challenges: ring-out win; perfect round; clear N arcade stages (0x3AFC93); win with a random character.
+
+GBA
+metriod fusion
+  [DONE ✅] RA 785, RoMM 166. No challenge given. Start state at first control (docking bay) saved.
+  [IN ROTATION 🎮] gauntlet_data/metroid_fusion.json: Untouchable, Reach Sector 1.
+  Key RAM (native GBA addresses): mode 0x03000BDE (1 in game), area/room 0x0300002C/D, energy 0x03001310
+           (verified by poke), missiles 0x03001314, IGT 0x03000138-B (h/m/s/f), boss event 0x030001D4
+           (0x44 just defeated), B.O.X. HP 0x03000314, Core-X 0x03000244 (0x5D dead).
+  Proposed challenges: first to beat Arachnus; reach the first Navigation Room; beat a boss without taking
+           damage; fastest to Sector 1 (IGT).
+
+pokemon emerald - beat champion
+  [PARTIAL ✅] RA 668, RoMM 830. Mechanics verified on the 0:07 RoMM save (copied, not overwritten).
+           Needs state at the Champion's room.
+  Key RAM: SaveBlock1 pointer 0x03005D8C (moves!), flags at SB1+0x1270, GAME_CLEAR = SB1+0x137C bit4,
+           badges SB1+0x137C bit7 + 0x137D bits0-6 (verified via trainer card), party count 0x020244E9,
+           battle outcome 0x0202433A (1 won; verified fled = 4), opponent trainer ID 0x02038BCA (Wallace 0x14F).
+  Win: outcome = 1 with trainer ID 0x14F (or GAME_CLEAR set).
+  Other challenges: beat Roxanne (first gym); catch N Pokémon on Route 101-103; beat the rival on Route 103;
+           Battle Tower / Frontier streaks; win a battle without healing.
+
+pokemon fire red - catch a pokemon in safari zone
+  [PARTIAL ✅] RA 515, RoMM 831. SB1 pointer, map and party count verified on a new game. Needs state at the
+           Safari Zone (Fuchsia City).
+  Key RAM: SaveBlock1 pointer 0x03005008 (moves!), map SB1+0x04/0x05, party count 0x02024029,
+           battle type 0x02022B4C (0x80 = Safari), battle outcome 0x02023E8A (7 = caught),
+           Safari Balls 0x02039994, Safari steps 0x02039996.
+  Win: outcome = 7 while battle type has 0x80 set.
+  Other challenges: catch a specific Safari Pokémon (Chansey / Tauros); catch with the fewest Safari Balls;
+           beat Brock; first to catch a Pokémon in Viridian Forest; win the rival battle in Oak's lab.

@@ -1,0 +1,101 @@
+{
+  "id": "super_metroid_snes",
+  "title": "Super Metroid",
+  "system": "snes",
+  "match": [
+    "super metroid"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + snes9x, Super Metroid (Japan, USA). Game state $0998 (8 gameplay, 0x20 Ceres escape); area $079F (6 Ceres, 0 Crateria); energy $09C2 (99 at start). Area changing 6 -> 0 on landing on Zebes is expected from the area table (not watched live)",
+  "game": {
+    "meta": {
+      "name": "Super Metroid",
+      "system": "snes",
+      "core": "snes9x",
+      "players": 1,
+      "description": "Take turns escaping Ceres Station."
+    },
+    "memory": {
+      "layout": "linear",
+      "endian": "little"
+    },
+    "challenges": [
+      {
+        "id": "ceres_escape",
+        "name": "Escape Ceres",
+        "mode": "turns",
+        "description": "From the start of Ceres Station: fight Ridley, escape and land on Zebes. Fastest wins.",
+        "metric": {
+          "address": "0x079F",
+          "size": 1
+        },
+        "win": {
+          "type": "equals",
+          "value": 0
+        },
+        "time_limit": 600,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0998",
+          "size": 1,
+          "op": "eq",
+          "value": 8
+        },
+        "start_state": "sm_ceres.state"
+      },
+      {
+        "id": "ceres_energy",
+        "name": "Ceres Energy Saver",
+        "mode": "turns",
+        "description": "Two minutes into Ceres: most energy left wins.",
+        "metric": {
+          "address": "0x09C2",
+          "size": 2
+        },
+        "win": {
+          "type": "compare",
+          "order": "high"
+        },
+        "time_limit": 120,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0998",
+          "size": 1,
+          "op": "eq",
+          "value": 8
+        },
+        "start_state": "sm_ceres.state"
+      }
+    ],
+    "shop": [
+      {
+        "id": "reserve",
+        "name": "Energy Refill",
+        "cost": 2,
+        "category": "buff",
+        "target": "self",
+        "limit": 1,
+        "description": "Energy back to 99 after a minute",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x09C2",
+            "size": 2,
+            "op": "set",
+            "value": 99,
+            "delay": 60,
+            "when": {
+              "address": "0x0998",
+              "size": 1,
+              "op": "eq",
+              "value": 8
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

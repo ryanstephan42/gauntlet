@@ -1,12 +1,14 @@
 import json
+import os
 import socket
+import sys
 import threading
 
 from gauntlet.economy import Shop
 from gauntlet.games import load_games
 from gauntlet.retroarch import RetroArchClient
 from gauntlet.schema import validate_game
-from gauntlet.settings import load_settings
+from gauntlet.settings import Settings, load_settings
 
 GOOD = {
     "meta": {"name": "G", "core": "c.so", "rom": "r.sfc"},
@@ -61,7 +63,18 @@ def test_load_games_skips_bad(tmp_path):
 def test_repo_games_valid():
     games, problems = load_games("gauntlet_data")
     assert problems == {}
-    assert len(games) == 2
+    assert len(games) == 21
+
+
+def test_presets_valid():
+    from gauntlet.presets import load_presets
+    from gauntlet.schema import validate_game
+    presets = load_presets()
+    assert len(presets) >= 21
+    for p in presets:
+        game = json.loads(json.dumps(p["game"]))
+        game["meta"]["rom"] = "game.rom"  # the add-game wizard fills this in
+        assert validate_game(game) == [], p["id"]
 
 
 def test_settings_defaults_and_bad_types(tmp_path):
@@ -134,3 +147,20 @@ def test_is_ready_requires_loaded_content():
 def test_udp_timeout_returns_none():
     c = RetroArchClient("127.0.0.1", 9, timeout=0.1)
     assert c.read_memory("0x10") is None
+
+
+def test_frozen_build_uses_writable_data_root_and_seeds_games(tmp_path, monkeypatch):
+    from gauntlet import paths
+    bundle = tmp_path / "bundle"
+    (bundle / "gauntlet_data").mkdir(parents=True)
+    (bundle / "gauntlet_data" / "a.json").write_text("{}")
+    (bundle / "gauntlet_data" / "notes.txt").write_text("x")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    monkeypatch.chdir(tmp_path)
+    s = Settings()
+    assert s.data_path == str(tmp_path / "xdg" / "gauntlet" / "gauntlet_data")
+    assert paths.seed_data_dir(s.data_path) == ["a.json"]
+    os.remove(os.path.join(s.data_path, "a.json"))
+    assert paths.seed_data_dir(s.data_path) == []  # only on first run

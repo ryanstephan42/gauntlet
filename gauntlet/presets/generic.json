@@ -1,0 +1,19 @@
+{
+  "items": [
+    {"id": "turbo", "name": "Turbo Time", "cost": 3, "category": "chaos", "target": "opponent", "limit": 1,
+     "description": "Fast-forward the game for 8 seconds",
+     "actions": [{"type": "retroarch_command", "command": "FAST_FORWARD", "delay": 5, "duration": 8}]},
+    {"id": "slowmo", "name": "Bullet Time", "cost": 3, "category": "chaos", "target": "opponent", "limit": 1,
+     "description": "Slow motion for 8 seconds",
+     "actions": [{"type": "retroarch_command", "command": "SLOWMOTION", "delay": 5, "duration": 8}]},
+    {"id": "freeze_frame", "name": "Freeze Frame", "cost": 2, "category": "chaos", "target": "opponent", "limit": 1,
+     "description": "Pause the game for 3 seconds after 20 seconds",
+     "actions": [{"type": "retroarch_command", "command": "PAUSE_TOGGLE", "delay": 20, "duration": 3}]},
+    {"id": "silence", "name": "Silence", "cost": 1, "category": "chaos", "target": "opponent", "limit": 1,
+     "description": "Mute the game for 30 seconds",
+     "actions": [{"type": "retroarch_command", "command": "MUTE", "delay": 3, "duration": 30}]},
+    {"id": "taunt", "name": "Taunt", "cost": 1, "category": "chaos", "target": "opponent", "limit": 1,
+     "description": "Show a taunt on screen",
+     "actions": [{"type": "message", "text": "{buyer} says: {target}, you're going down!", "delay": 10}]}
+  ]
+}

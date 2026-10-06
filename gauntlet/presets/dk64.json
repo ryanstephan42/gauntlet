@@ -1,0 +1,143 @@
+{
+  "id": "dk64_n64_usa",
+  "title": "Donkey Kong 64",
+  "system": "n64",
+  "match": [
+    "donkey kong 64"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + mupen64plus_next, Donkey Kong 64 (USA). Game state $755314 (6 in game); DK Golden Bananas Japes $7FC990, Isles $7FC9A0 (poked 5 -> pause 5); yellow bananas $7FC956",
+  "game": {
+    "meta": {
+      "name": "Donkey Kong 64",
+      "system": "n64",
+      "core": "mupen64plus_next",
+      "players": 1,
+      "description": "Race through a random level (5 worlds) with all five Kongs and every move unlocked."
+    },
+    "memory": {
+      "layout": "swap32",
+      "endian": "big"
+    },
+    "challenges": [
+      {
+        "id": "first_banana",
+        "name": "First Golden Banana",
+        "mode": "turns",
+        "description": "Random level entrance (Japes, Aztec, Factory, Galleon or Fungi), all Kongs and moves unlocked: first Golden Banana wins.",
+        "metric": {
+          "address": "0x7FC992",
+          "size": 2,
+          "count": 7,
+          "step": "0x2",
+          "add": [
+            {
+              "address": "0x7FC9F0",
+              "size": 2,
+              "count": 7,
+              "step": "0x2"
+            },
+            {
+              "address": "0x7FCA4E",
+              "size": 2,
+              "count": 7,
+              "step": "0x2"
+            },
+            {
+              "address": "0x7FCAAC",
+              "size": 2,
+              "count": 7,
+              "step": "0x2"
+            },
+            {
+              "address": "0x7FCB0A",
+              "size": 2,
+              "count": 7,
+              "step": "0x2"
+            }
+          ]
+        },
+        "win": {
+          "type": "reach",
+          "value": 1
+        },
+        "time_limit": 900,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x755314",
+          "size": 1,
+          "op": "eq",
+          "value": 6
+        },
+        "start_state": [
+          "dk64_japes.state",
+          "dk64_aztec.state",
+          "dk64_factory.state",
+          "dk64_galleon.state",
+          "dk64_fungi.state"
+        ]
+      },
+      {
+        "id": "banana_bunch",
+        "name": "Banana Bunch",
+        "mode": "turns",
+        "description": "Random level entrance, all Kongs and moves unlocked, three minutes: most coloured bananas (any Kong) wins.",
+        "metric": {
+          "address": "0x7FC95A",
+          "size": 2,
+          "count": 7,
+          "step": "0x2",
+          "add": [
+            {
+              "address": "0x7FC9B8",
+              "size": 2,
+              "count": 7,
+              "step": "0x2"
+            },
+            {
+              "address": "0x7FCA16",
+              "size": 2,
+              "count": 7,
+              "step": "0x2"
+            },
+            {
+              "address": "0x7FCA74",
+              "size": 2,
+              "count": 7,
+              "step": "0x2"
+            },
+            {
+              "address": "0x7FCAD2",
+              "size": 2,
+              "count": 7,
+              "step": "0x2"
+            }
+          ]
+        },
+        "win": {
+          "type": "compare",
+          "order": "high"
+        },
+        "time_limit": 180,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x755314",
+          "size": 1,
+          "op": "eq",
+          "value": 6
+        },
+        "start_state": [
+          "dk64_japes.state",
+          "dk64_aztec.state",
+          "dk64_factory.state",
+          "dk64_galleon.state",
+          "dk64_fungi.state"
+        ]
+      }
+    ],
+    "shop": []
+  }
+}

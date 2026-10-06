@@ -1,0 +1,164 @@
+{
+  "id": "punch_out_nes_usa",
+  "title": "Mike Tyson's Punch-Out!!",
+  "system": "nes",
+  "match": [
+    "mike tyson's punch-out!!",
+    "punch-out!!",
+    "mike tysons punch-out!!"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + fceumm, Mike Tyson's Punch-Out!! (Japan, USA). Opponent $0001 (6 = Bald Bull); Mac wins (ones) $0171 went 0 -> 1 on a TKO; opponent knock-downs this round $03CA; Mac health $0391 / opponent $0398 (0x60 full); hearts tens/ones $0323/$0324",
+  "game": {
+    "meta": {
+      "name": "Mike Tyson's Punch-Out!!",
+      "system": "nes",
+      "core": "fceumm",
+      "players": 1,
+      "description": "Take turns against Bald Bull (Major Circuit title bout)."
+    },
+    "memory": {
+      "layout": "linear",
+      "endian": "little"
+    },
+    "challenges": [
+      {
+        "id": "beat_bald_bull",
+        "name": "Beat Bald Bull",
+        "mode": "turns",
+        "description": "Press Start and knock Bald Bull out: fastest win takes it.",
+        "metric": {
+          "address": "0x0171",
+          "size": 1
+        },
+        "win": {
+          "type": "reach",
+          "value": 1
+        },
+        "time_limit": 480,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "start_state": "punchout_baldbull_prefight.state"
+      },
+      {
+        "id": "knockdowns",
+        "name": "Knockdown Derby",
+        "mode": "turns",
+        "description": "Two minutes with Bald Bull: most knock-downs in round 1 wins.",
+        "metric": {
+          "address": "0x03CA",
+          "size": 1
+        },
+        "win": {
+          "type": "compare",
+          "order": "high"
+        },
+        "time_limit": 130,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "start_state": "punchout_baldbull_prefight.state"
+      }
+    ],
+    "shop": [
+      {
+        "id": "star_start",
+        "name": "Star Start",
+        "cost": 2,
+        "category": "buff",
+        "target": "self",
+        "limit": 1,
+        "description": "Mac starts the fight holding a star (Start = star uppercut)",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x0342",
+            "size": 1,
+            "op": "set",
+            "value": 1,
+            "when": {
+              "address": "0x0305",
+              "size": 1,
+              "op": "eq",
+              "value": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "running_on_empty",
+        "name": "Running on Empty",
+        "cost": 2,
+        "category": "debuff",
+        "target": "opponent",
+        "limit": 1,
+        "description": "Opponent starts the fight with 0 hearts, tired and unable to punch",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x0323",
+            "size": 1,
+            "op": "set",
+            "value": 0,
+            "when": {
+              "address": "0x0305",
+              "size": 1,
+              "op": "eq",
+              "value": 1
+            }
+          },
+          {
+            "type": "memory_write",
+            "address": "0x0324",
+            "size": 1,
+            "op": "set",
+            "value": 0,
+            "when": {
+              "address": "0x0305",
+              "size": 1,
+              "op": "eq",
+              "value": 1
+            }
+          },
+          {
+            "type": "memory_write",
+            "address": "0x048E",
+            "size": 1,
+            "op": "set",
+            "value": 20,
+            "when": {
+              "address": "0x0305",
+              "size": 1,
+              "op": "eq",
+              "value": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "softened_up",
+        "name": "Softened Up",
+        "cost": 2,
+        "category": "buff",
+        "target": "self",
+        "limit": 1,
+        "description": "Bald Bull starts the fight at 3/4 health",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x0398",
+            "size": 1,
+            "op": "set",
+            "value": 72,
+            "when": {
+              "address": "0x0305",
+              "size": 1,
+              "op": "eq",
+              "value": 1
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
