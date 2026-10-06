@@ -5,6 +5,9 @@ Revised after feedback:
   avoided. Versus is only used for fighters and similar games that are head to head by nature.
 - **All emulatable consoles are in scope** (NES, SNES, Genesis, Game Boy/GBC/GBA, N64, PSX, Saturn, Dreamcast, PS2,
   GameCube, arcade, and so on).
+- **Quick vs. boss mix.** Roughly half of each game's list should be a **Quick** challenge (15-60 s: grab an item,
+  clear one short level, hit a flag, reach a door) and half a **Boss/Moment** challenge (needs a save state, 1-3 min).
+  Quick items are marked **[Q]**, boss fights **[B]**. Put a quick one on either side of a boss in a playlist.
 - **Iconic moments, not scores.** Each challenge is one recognizable thing from gaming history, like "beat Grey Fox"
   (already in the list). Win condition is nearly always a boss HP = 0, a flag, an item, or a level-complete flag.
 
@@ -100,7 +103,13 @@ Each game has 3-4 moments. Most are "be first to do the famous thing".
 3. **Become Super Sonic** (R*): collect the emeralds and hit 50 rings. *Super flag*
 4. **Escape the Death Egg** (R*). *final boss flag*
 
-### Doom (PSX / SNES / GBA)
+### Doom bosses (PSX / SNES / GBA / PC ports)
+1. **Beat the Cyberdemon** (R*): E2M8 / E1M8 style big fight. *boss HP = 0*
+2. **Beat the Spider Mastermind** (R*): E3M8, the end of Inferno. *boss HP = 0*
+3. **Beat the Barons of Hell** (R*): E1M8 Hell Barons. *boss kill count*
+4. **Kill the Icon of Sin** (R*): Doom II MAP30 (rocket into the boss's head). *boss HP = 0*
+
+### Doom (PSX / SNES / GBA) quick races
 1. **Beat the Cyberdemon** (R*). *boss HP = 0*
 2. **Find the secret level (E1M9)** (R*). *level id*
 3. **Pick up the BFG** (R*): the famous weapon. *weapon flag*
@@ -192,6 +201,23 @@ Each game has 3-4 moments. Most are "be first to do the famous thing".
 
 ---
 
+## Heavier consoles: PS2, Dreamcast, Saturn
+Opinion, not benchmarked. Racing means one RetroArch window per player, so 4 players = 4 emulators at once.
+- **Dreamcast (Flycast core): fine.** Light enough for 4 windows on a normal modern PC. Race is OK.
+- **Saturn (Beetle Saturn / Yabause / Kronos cores): borderline.** Beetle Saturn is CPU-heavy but 2 windows are fine; 3-4 need
+  a strong CPU. Use Yabause or Kronos for speed. Race for 2 players, test 4.
+- **PS2 (LRPS2/PCSX2-based core): the risky one.** It is by far the heaviest and the libretro core is x86-only and less
+  mature. 2 windows on a strong CPU and GPU can work, but 4 will almost surely stutter, and a stuttering game makes a race
+  unfair. Default to **turns** for PS2 and keep them quick (30-90 s).
+- **Also heavy:** GameCube/Wii (Dolphin) and PSP. Treat like PS2 if the machine struggles.
+- **Plan:** add a per-game `mode` hint (race / turns fallback) and run a quick 4-window test on the target PC before
+  committing to a game. If frame rate drops, fall back to turns or cap at 2 windows. Everything else in this doc is
+  light (NES to PS1, N64, GBA, Genesis) and should race fine.
+- **Quick PS2/DC/Saturn turns candidates** (win = fastest time or first to the flag, played one at a time):
+  - PS2 Devil May Cry 3: beat Cerberus (B). Shadow of the Colossus: topple the first colossus (B). God of War: kill the Hydra (B).
+  - Dreamcast Sonic Adventure: finish Emerald Coast (Q). Crazy Taxi: first fare to the drop-off (Q).
+  - Saturn Nights into Dreams: clear Spring Valley stage 1 (Q). Panzer Dragoon: beat the first boss (B).
+
 ## What to pick first
 Best ratio of effort to fun: single boss fights from a save state are the easiest (HP = 0, we already do this
 for Punch-Out and Mega Man).
@@ -201,7 +227,13 @@ for Punch-Out and Mega Man).
 4. **Zelda: ALttP: Get the Master Sword** (an item flag)
 5. **Tetris/Dr. Mario: Clear all viruses** (no save state)
 
+## Decisions so far
+- Mix of boss/moment and quick race-to-item / level-clear challenges, near 50/50, with plenty of fast ones.
+- Save states for each boss fight: yes, will be made.
+- PS2 / Dreamcast / Saturn: maybe. Dreamcast is safe to race, Saturn for 2 players, PS2 as turns unless a 4-window test passes.
+- Doom bosses: added a dedicated list.
+
 ## Open questions
-- Do we want to commit to mostly "beat X" moments, or keep some race-to-item moments?
-- Which of these save states are we willing to produce (each boss needs one)?
-- Are PS2, Dreamcast and Saturn worth the RAM research cost, or do we stay with the cores the repo already covers?
+- What hardware will this run on (CPU/GPU)? That decides the PS2/Saturn window cap.
+- Should I tag every challenge below as [Q] or [B] and rebalance each game to 2+2? (Not done yet; the current lists are
+  boss-heavy, so quick item and level challenges still need to be added to some games.)
