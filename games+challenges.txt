@@ -109,9 +109,10 @@ super metriod
 star fox
   [DONE ✅] RA 351, RoMM 66 (Rev 2; some RA addresses are 2 lower on Rev 2). Corneria start state saved.
   [IN ROTATION 🎮] gauntlet_data/star_fox.json: Shield Keeper, Corneria Survivor, Clear Corneria.
+  [MULTI-LEVEL 🎲] Corneria on Level 1, 2 or 3 picked at random (3 start states).
   Key RAM (Rev 2): in game 0x00FD, shield 0x0396, lives 0x16EC, bombs 0x15AD, stage ID 0x1FF7 (u16),
-           path 0x16DA, stage-in-path 0x16D8.
-  Proposed challenges: clear Corneria (stage 0x16D8 advances); clear a stage without losing shield below 50%;
+           route 0x16D8 (0/1/2), stage-in-route 0x16D6 (verified 0 -> 1 after the Corneria boss).
+  Proposed challenges: clear Corneria (stage 0x16D6 advances); clear a stage without losing shield below 50%;
            don't use any Nova bombs; finish a route (Level 1/2/3); keep all wingmen alive.
 
 

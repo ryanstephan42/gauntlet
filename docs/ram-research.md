@@ -308,14 +308,19 @@ RA's notes were made on an earlier revision. On the RoMM **Rev 2** ROM some addr
 | `0x16EE` | **`0x16EC`** | u8 | Lives; the HUD shows value − 1 (3 = "×2") | ✅ |
 | `0x15AF` | **`0x15AD`** | u8 | Nova bombs (max 5) | ✅ |
 | `0x1FF9` | **`0x1FF7`** | u16 | Stage ID; Corneria on Level 1 reads 0x4F8E (RA lists 0x5068) | ✅ differs |
-| `0x16DA` | `0x16DA` | u8 | Path (in game: 0 Level 1, 1 Level 2, 2 Level 3) | ✅ 0 |
-| `0x16D8` | `0x16D8` | u8 | Stage number within the path (0 = first) | ✅ 0 |
+| `0x16DA` | **`0x16D8`** | u8 | Route (0 Level 1, 1 Level 2, 2 Level 3) | ✅ watched on all 3 routes |
+| `0x16D8` | **`0x16D6`** | u8 | Stage number within the route (0 = Corneria) | ✅ 0 → 1 after the Corneria boss |
 | `0x15BA` | ? | u8 | Level complete ("All aircraft report") | 📝 |
 | `0x1FBF-0x1FC5` | ? | u8 | Hit percentage per stage | 📝 |
 | `0x189A` | ? | u8 | Continues | 📝 |
 
 Because of the shift, presets should use the Rev 2 addresses verified above. Re-check the 📝 entries on Rev 2 before
-using them. A start state at the beginning of Corneria (Level 1) is saved.
+using them. Rev 2 `0x16DA` reads 255 on the route map and 0 in flight (not used).
+
+Start states: Corneria on each route — `sf_corneria.state` (Level 1, stage ID 0x4F8E), `sf_corneria_level2.state`
+(0x5C8C), `sf_corneria_level3.state` (0x62F5). Made from a fresh boot: title Start, controls Start, down to GAME, Start;
+on the route map up = Level 2 and down = Level 3, Start (then SNES A) to launch; saved once flying with full shield.
+Every Star Fox challenge picks one of the three at random; "Clear Corneria" uses `0x16D6` reach 1, which works on all routes.
 
 ---
 

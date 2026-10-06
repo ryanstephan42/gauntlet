@@ -6,14 +6,15 @@
     "star fox",
     "starfox"
   ],
-  "verified": "RetroArch 1.22.2 (RetroDECK) + snes9x, Star Fox (USA) (Rev 2). Shield $0396 (40 full, drops when hit); lives $16EC (HUD shows value - 1); in game $00FD; stage within path $16D8 (0 = Corneria). The stage counter advancing after Corneria is from RA notes (not watched live)",
+  "verified": "RetroArch 1.22.2 (RetroDECK) + snes9x, Star Fox (USA) (Rev 2). Shield $0396 (40 full, drops when hit); lives $16EC (HUD shows value - 1); in game $00FD; route $16D8 (0/1/2 = Level 1/2/3); stage within route $16D6 (0 = Corneria, watched advancing to 1 after the Corneria boss)",
   "game": {
     "meta": {
       "name": "Star Fox",
       "system": "snes",
       "core": "snes9x",
       "players": 1,
-      "description": "Take turns flying Corneria."
+      "description": "Take turns flying Corneria.",
+      "rom": "Star Fox (USA) (Rev 2).sfc"
     },
     "memory": {
       "layout": "linear",
@@ -24,7 +25,7 @@
         "id": "shield_keeper",
         "name": "Shield Keeper",
         "mode": "turns",
-        "description": "Two minutes of Corneria: most shield left wins.",
+        "description": "Two minutes of Corneria (random route: Level 1, 2 or 3): most shield left wins.",
         "metric": {
           "address": "0x0396",
           "size": 1
@@ -43,13 +44,17 @@
           "op": "eq",
           "value": 1
         },
-        "start_state": "sf_corneria.state"
+        "start_state": [
+          "sf_corneria.state",
+          "sf_corneria_level2.state",
+          "sf_corneria_level3.state"
+        ]
       },
       {
         "id": "corneria_survivor",
         "name": "Corneria Survivor",
         "mode": "turns",
-        "description": "Fly Corneria without losing a life: whoever lasts longest wins.",
+        "description": "Fly Corneria (random route: Level 1, 2 or 3) without losing a life: whoever lasts longest wins.",
         "metric": {
           "address": "0x16EC",
           "size": 1
@@ -68,15 +73,19 @@
           "op": "eq",
           "value": 1
         },
-        "start_state": "sf_corneria.state"
+        "start_state": [
+          "sf_corneria.state",
+          "sf_corneria_level2.state",
+          "sf_corneria_level3.state"
+        ]
       },
       {
         "id": "clear_corneria",
         "name": "Clear Corneria",
         "mode": "turns",
-        "description": "Beat the Corneria boss: fastest wins.",
+        "description": "Beat the Corneria boss (random route: Level 1, 2 or 3): fastest wins.",
         "metric": {
-          "address": "0x16D8",
+          "address": "0x16D6",
           "size": 1
         },
         "win": {
@@ -93,7 +102,11 @@
           "op": "eq",
           "value": 1
         },
-        "start_state": "sf_corneria.state"
+        "start_state": [
+          "sf_corneria.state",
+          "sf_corneria_level2.state",
+          "sf_corneria_level3.state"
+        ]
       }
     ],
     "shop": [
