@@ -110,10 +110,10 @@ Each game has 3-4 moments. Most are "be first to do the famous thing".
 4. **Kill the Icon of Sin** (R*): Doom II MAP30 (rocket into the boss's head). *boss HP = 0*
 
 ### Doom (PSX / SNES / GBA) quick races
-1. **Beat the Cyberdemon** (R*). *boss HP = 0*
-2. **Find the secret level (E1M9)** (R*). *level id*
-3. **Pick up the BFG** (R*): the famous weapon. *weapon flag*
-4. **Escape E1M1** (R*): the first level. *level complete flag*
+1. **Find the secret level (E1M9)** [Q] (R*). *level id*
+2. **Pick up the shotgun** [Q] (R): first weapon grab on E1M1. *weapon flag*
+3. **Escape E1M1** [Q] (R): the first level. *level complete flag*
+4. **Pick up the BFG** [Q] (R*): the famous weapon. *weapon flag*
 
 ### GoldenEye 007 (N64)
 1. **Bungee jump off the Dam** (R*): the opening jump. *level progress flag*
