@@ -485,7 +485,7 @@ class PlaylistOptions(FormScreen):
                   help="Single game, several rounds across games, or a knockout bracket."),
             Field("rounds", "Rounds", "int", max(3, len(entries)), lo=1, hi=30,
                   help="How many rounds the gauntlet lasts (games repeat in order)."),
-            Field("shuffle", "Shuffle games", "bool", False, help="Pick a random game each round."),
+            Field("shuffle", "Shuffle games", "bool", False, help="Random order; every game is played once before any repeats."),
             Field("best_of", "Best of", "choice", best if best in (1, 3, 5, 7) else 1, [1, 3, 5, 7],
                   help="Each round is a series: first to win the majority."),
             Field("points", "Starting points", "int", app.settings.starting_points, lo=0, hi=200,

@@ -152,7 +152,9 @@ compare against 0x30.
 | `0x0391` | u8 | Mac health (0x60 = full) | ✅ 96 |
 | `0x0398` | u8 | Opponent health (0x60 = full) | ✅ 96, writable |
 | `0x0323` / `0x0324` | u8 / u8 | Hearts tens / ones | ✅ |
-| `0x0342` | u8 | Stars (0-3) | 📝 |
+| `0x0342` | u8 | Stars (0-3); a written star is spent by Start (star uppercut), lost when Mac is hit | ✅ writable |
+| `0x0325` / `0x0349` | u8 | 0x80 pulse = redraw hearts HUD (HUD does not redraw for RAM writes) | 📝 |
+| `0x048E` | u8 | Mac tired timer: 20 with hearts 0 → Mac turns pink and cannot punch | ✅ |
 | `0x0170` / `0x0171` | u8 / u8 | Mac wins tens / ones | ✅ 0 → 1 on a TKO of Bald Bull |
 | `0x0172` / `0x0173` | u8 / u8 | Mac losses tens / ones | ✅ 0 → 1 after a loss |
 | `0x0174` / `0x0175` | u8 / u8 | Mac KOs tens / ones | ✅ 0 → 1 on the same TKO |
@@ -164,6 +166,12 @@ compare against 0x30.
 **Start state:** writing `0x0001 = 6` on the pre-fight "PUSH START!" screen loads the Major Circuit title bout against
 Bald Bull straight away (verified). This makes it easy to build a challenge state without playing through the Minor
 Circuit. Win = Mac wins counter (`0x0170*10 + 0x0171`) increases while `0x0001 == 6`.
+
+**Timing for writes:** the game resets health (both to 96), hearts (15) and the clock when the fight is set up, and
+re-fills the opponent's health once more during the ring intro. Writes made before the bell are lost. Gate them on the
+clock's seconds digit: `when 0x0305 == 1` fires one second after the bell (the pre-fight state holds 8 there).
+Verified: `0x0398 = 72` (Bald Bull at ¾), `0x0342 = 1` (star) and hearts `0x0323/0x0324 = 0` + `0x048E = 20`
+(tired Mac) all stick when written then. Hearts = 0 on its own does **not** make Mac tired.
 
 ### Battletoads – the sewer race  (RA 1509, ✅ partly verified, ROM 511)
 

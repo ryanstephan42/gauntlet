@@ -51,6 +51,8 @@ Tetris - get 30 line clears
 punchout - beat bull
   [DONE ✅] RA 1489, RoMM 571. Writing opponent 0x0001 = 6 on the "PUSH START" screen loads the Bald Bull fight
   [IN ROTATION 🎮] gauntlet_data/punch_out.json: Beat Bald Bull, Knockdown Derby.
+  Shop (play-test rework): Star Start (0x0342=1), Running on Empty (opponent hearts 0 + 0x048E=20 = tired),
+  Softened Up (Bull 0x0398=72); all gated on clock 0x0305 == 1 since the game resets these at the bell.
            (verified), so no long save state is needed.
   Key RAM: opponent 0x0001 (6 = Bald Bull), round 0x0006, Mac HP 0x0391, opponent HP 0x0398,
            wins 0x0170/0x0171, losses 0x0172/0x0173, hearts 0x0323/0x0324.

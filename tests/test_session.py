@@ -99,6 +99,20 @@ def test_gauntlet_rounds_fixed_and_shuffle():
     assert g2 == g3
 
 
+@pytest.mark.parametrize("seed", range(20))
+def test_shuffle_plays_every_game_before_repeating(seed):
+    entries = [{"game": g} for g in "abcde"]
+    s = Session(players(2), Playlist("gauntlet", entries, rounds=12, shuffle=True), 0, seed=seed)
+    games = []
+    while (r := s.next_round()):
+        games.append(r.game)
+        s.record_match(Verdict([0], [1]), Settings())
+    assert sorted(games[:5]) == list("abcde")
+    assert sorted(games[5:10]) == list("abcde")
+    assert len(set(games[10:])) == 2
+    assert all(a != b for a, b in zip(games, games[1:]))
+
+
 @pytest.mark.parametrize("n,expected_rounds", [(2, 1), (3, 2), (4, 3)])
 def test_bracket(n, expected_rounds):
     s = Session(players(n), Playlist("bracket", [{"game": "a"}]), 0, seed=7)
