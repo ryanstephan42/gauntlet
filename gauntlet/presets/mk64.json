@@ -12,7 +12,7 @@
       "system": "n64",
       "core": "mupen64plus_next",
       "players": 1,
-      "description": "Take turns at Luigi Raceway (50cc GP)."
+      "description": "50cc Grand Prix race on a random course (7 courses)."
     },
     "memory": {
       "layout": "swap32",
@@ -20,10 +20,10 @@
     },
     "challenges": [
       {
-        "id": "luigi_raceway",
-        "name": "Win Luigi Raceway",
+        "id": "win_race",
+        "name": "Win the Race",
         "mode": "turns",
-        "description": "Finish 1st: fastest win takes it, best place if nobody wins.",
+        "description": "A random course each round: finish 1st, fastest win takes it; best place if nobody wins.",
         "metric": {
           "address": "0x0F6994",
           "size": 2,
@@ -45,7 +45,7 @@
           "value": -5,
           "order": "low"
         },
-        "time_limit": 300,
+        "time_limit": 360,
         "on_timeout": "compare",
         "best_of": 1,
         "min_time": 1,
@@ -55,13 +55,21 @@
           "op": "eq",
           "value": 4
         },
-        "start_state": "mk64_luigi_raceway_race.state"
+        "start_state": [
+          "mk64_luigi_raceway_race.state",
+          "mk64_moo_moo_farm_race.state",
+          "mk64_koopa_beach_race.state",
+          "mk64_kalimari_desert_race.state",
+          "mk64_choco_mountain_race.state",
+          "mk64_mario_raceway_race.state",
+          "mk64_royal_raceway_race.state"
+        ]
       },
       {
         "id": "time_trial",
         "name": "Finish Fastest",
         "mode": "turns",
-        "description": "Just finish the 3 laps: fastest wins.",
+        "description": "A random course each round: just finish the 3 laps, fastest wins.",
         "metric": {
           "address": "0x0DC513",
           "size": 1
@@ -70,7 +78,7 @@
           "type": "equals",
           "value": 5
         },
-        "time_limit": 300,
+        "time_limit": 360,
         "on_timeout": "compare",
         "best_of": 1,
         "min_time": 1,
@@ -80,7 +88,15 @@
           "op": "eq",
           "value": 4
         },
-        "start_state": "mk64_luigi_raceway_race.state"
+        "start_state": [
+          "mk64_luigi_raceway_race.state",
+          "mk64_moo_moo_farm_race.state",
+          "mk64_koopa_beach_race.state",
+          "mk64_kalimari_desert_race.state",
+          "mk64_choco_mountain_race.state",
+          "mk64_mario_raceway_race.state",
+          "mk64_royal_raceway_race.state"
+        ]
       }
     ],
     "shop": []

@@ -12,14 +12,42 @@
       "name": "Pokemon Stadium 2",
       "system": "n64",
       "core": "mupen64plus_next",
-      "players": 1,
-      "description": "Take turns in a Free Battle against the COM."
+      "players": 2,
+      "description": "Battle Now! face-off with random rental teams, or race a Free Battle against the COM."
     },
     "memory": {
       "layout": "swap32",
       "endian": "big"
     },
     "challenges": [
+      {
+        "id": "battle_now",
+        "name": "Battle Now! Face-off",
+        "mode": "versus",
+        "description": "2P Battle Now: press A for random rental teams, each pick three, then battle. Knock out the other player's team to win (most total HP left at the time limit).",
+        "metric": {
+          "address": "0x14528E",
+          "stride": "0x4E0",
+          "size": 2,
+          "count": 3,
+          "step": "0x58"
+        },
+        "win": {
+          "type": "eliminate",
+          "value": 0
+        },
+        "time_limit": 600,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x11F301",
+          "size": 1,
+          "op": "eq",
+          "value": 14
+        },
+        "start_state": "ps2_battle_now.state"
+      },
       {
         "id": "free_battle",
         "name": "Free Battle",

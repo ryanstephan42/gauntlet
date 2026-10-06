@@ -13,7 +13,7 @@
       "system": "n64",
       "core": "mupen64plus_next",
       "players": 2,
-      "description": "2-player multiplayer on Temple."
+      "description": "2-player multiplayer (Rockets) on a random map."
     },
     "memory": {
       "layout": "swap32",
@@ -24,7 +24,7 @@
         "id": "first_to_5",
         "name": "First to 5",
         "mode": "versus",
-        "description": "Temple, rockets: first to 5 points (suicides cost a point).",
+        "description": "Random map (all 11), rockets: first to 5 points (suicides cost a point).",
         "metric": {
           "address": {
             "1": "0x079F18",
@@ -56,13 +56,25 @@
           "op": "eq",
           "value": 11
         },
-        "start_state": "ge_mp_temple_2p_first5.state"
+        "start_state": [
+          "ge_mp_temple_2p_first5.state",
+          "ge_mp_complex_2p_first5.state",
+          "ge_mp_caves_2p_first5.state",
+          "ge_mp_library_2p_first5.state",
+          "ge_mp_basement_2p_first5.state",
+          "ge_mp_stack_2p_first5.state",
+          "ge_mp_facility_2p_first5.state",
+          "ge_mp_bunker_2p_first5.state",
+          "ge_mp_archives_2p_first5.state",
+          "ge_mp_caverns_2p_first5.state",
+          "ge_mp_egypt_2p_first5.state"
+        ]
       },
       {
         "id": "three_minutes",
         "name": "Three-Minute Frag",
         "mode": "versus",
-        "description": "Temple, rockets: most points after 3 minutes.",
+        "description": "Random map (all 11), rockets: most points after 3 minutes.",
         "metric": {
           "address": {
             "1": "0x079F18",
@@ -94,7 +106,19 @@
           "op": "eq",
           "value": 11
         },
-        "start_state": "ge_mp_temple_2p_first5.state"
+        "start_state": [
+          "ge_mp_temple_2p_first5.state",
+          "ge_mp_complex_2p_first5.state",
+          "ge_mp_caves_2p_first5.state",
+          "ge_mp_library_2p_first5.state",
+          "ge_mp_basement_2p_first5.state",
+          "ge_mp_stack_2p_first5.state",
+          "ge_mp_facility_2p_first5.state",
+          "ge_mp_bunker_2p_first5.state",
+          "ge_mp_archives_2p_first5.state",
+          "ge_mp_caverns_2p_first5.state",
+          "ge_mp_egypt_2p_first5.state"
+        ]
       }
     ],
     "shop": []

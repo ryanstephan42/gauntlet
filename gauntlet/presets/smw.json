@@ -12,13 +12,46 @@
       "system": "snes",
       "core": "snes9x",
       "players": 1,
-      "description": "Take turns in Yoshi's Island 1."
+      "description": "Race through a random level (Yoshi's Island, Donut Plains, Butter Bridge, Cookie Mountain, Chocolate Island)."
     },
     "memory": {
       "layout": "linear",
       "endian": "little"
     },
     "challenges": [
+      {
+        "id": "level_rush",
+        "name": "Level Rush",
+        "mode": "turns",
+        "description": "A random level each round: first to the goal tape wins. Deaths respawn at the level start.",
+        "metric": {
+          "address": "0x1493",
+          "size": 1
+        },
+        "win": {
+          "type": "reach",
+          "value": 1
+        },
+        "time_limit": 420,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0100",
+          "size": 1,
+          "op": "eq",
+          "value": 20
+        },
+        "start_state": [
+          "smw_yi1.state",
+          "smw_dp1.state",
+          "smw_dp2.state",
+          "smw_dp4.state",
+          "smw_butter_bridge1.state",
+          "smw_cookie_mountain.state",
+          "smw_choco_island1.state"
+        ]
+      },
       {
         "id": "yoshis_island_1",
         "name": "Beat Yoshi's Island 1",
@@ -48,7 +81,7 @@
         "id": "coin_grab",
         "name": "Coin Grab",
         "mode": "turns",
-        "description": "90 seconds in Yoshi's Island 1: most coins wins.",
+        "description": "90 seconds in a random level: most coins wins.",
         "metric": {
           "address": "0x0DBF",
           "size": 1
@@ -67,7 +100,15 @@
           "op": "eq",
           "value": 20
         },
-        "start_state": "smw_yi1.state"
+        "start_state": [
+          "smw_yi1.state",
+          "smw_dp1.state",
+          "smw_dp2.state",
+          "smw_dp4.state",
+          "smw_butter_bridge1.state",
+          "smw_cookie_mountain.state",
+          "smw_choco_island1.state"
+        ]
       }
     ],
     "shop": [

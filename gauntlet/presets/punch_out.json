@@ -62,32 +62,37 @@
     ],
     "shop": [
       {
-        "id": "second_wind",
-        "name": "Second Wind",
+        "id": "star_start",
+        "name": "Star Start",
         "cost": 2,
         "category": "buff",
         "target": "self",
         "limit": 1,
-        "description": "Mac's health refills after 45 seconds",
+        "description": "Mac starts the fight holding a star (Start = star uppercut)",
         "actions": [
           {
             "type": "memory_write",
-            "address": "0x0391",
+            "address": "0x0342",
             "size": 1,
             "op": "set",
-            "value": 96,
-            "delay": 45
+            "value": 1,
+            "when": {
+              "address": "0x0305",
+              "size": 1,
+              "op": "eq",
+              "value": 1
+            }
           }
         ]
       },
       {
-        "id": "heart_attack",
-        "name": "Heart Attack",
+        "id": "running_on_empty",
+        "name": "Running on Empty",
         "cost": 2,
         "category": "debuff",
         "target": "opponent",
         "limit": 1,
-        "description": "Opponent's hearts drop to 3 after 20 seconds",
+        "description": "Opponent starts the fight with 0 hearts, tired and unable to punch",
         "actions": [
           {
             "type": "memory_write",
@@ -95,15 +100,62 @@
             "size": 1,
             "op": "set",
             "value": 0,
-            "delay": 20
+            "when": {
+              "address": "0x0305",
+              "size": 1,
+              "op": "eq",
+              "value": 1
+            }
           },
           {
             "type": "memory_write",
             "address": "0x0324",
             "size": 1,
             "op": "set",
-            "value": 3,
-            "delay": 20
+            "value": 0,
+            "when": {
+              "address": "0x0305",
+              "size": 1,
+              "op": "eq",
+              "value": 1
+            }
+          },
+          {
+            "type": "memory_write",
+            "address": "0x048E",
+            "size": 1,
+            "op": "set",
+            "value": 20,
+            "when": {
+              "address": "0x0305",
+              "size": 1,
+              "op": "eq",
+              "value": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "softened_up",
+        "name": "Softened Up",
+        "cost": 2,
+        "category": "buff",
+        "target": "self",
+        "limit": 1,
+        "description": "Bald Bull starts the fight at 3/4 health",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": "0x0398",
+            "size": 1,
+            "op": "set",
+            "value": 72,
+            "when": {
+              "address": "0x0305",
+              "size": 1,
+              "op": "eq",
+              "value": 1
+            }
           }
         ]
       }

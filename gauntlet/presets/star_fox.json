@@ -13,8 +13,7 @@
       "system": "snes",
       "core": "snes9x",
       "players": 1,
-      "description": "Take turns flying Corneria.",
-      "rom": "Star Fox (USA) (Rev 2).sfc"
+      "description": "Take turns flying Corneria."
     },
     "memory": {
       "layout": "linear",
