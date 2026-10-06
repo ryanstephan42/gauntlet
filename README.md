@@ -94,7 +94,7 @@ Missing keys use defaults; invalid values are logged and ignored.
 | Folders | `data_dir` (game configs), `rom_dir`, `core_dir` (empty = auto), `config_dir`, `assets_dir`, `start_states_dir`, `state_dir` |
 | Economy | `player_count`, `starting_points`, `win_points`, `loss_points`, `draw_points`, `catchup_step`, `catchup_max`, `streak_bonus`, `streak_max`, `max_items`, `wagers` |
 | Display/input | `fullscreen`, `width`, `height`, `tv_mode`, `sound`, `volume`, `split_keyboard`, `key_bindings`, `button_bindings` (Settings → Remap menu controls) |
-| Matches | `boot_timeout`, `poll_interval`, `close_delay`, `assign_ports` |
+| Matches | `boot_timeout`, `poll_interval`, `close_delay`, `assign_ports`, `game_vsync` (default off: two vsynced windows halve each other's speed on Wayland; audio sync keeps the pace) |
 | Races | `simultaneous_play`, `race_input_driver` (`""` = auto: `udev` when readable), `race_mute_others`, `race_place_windows` (float match windows into place) |
 | Match layout | `stage_layout` (games on top, scoreboard strip below; Hyprland/Sway), `stage_hud_percent` (strip height, 10–50), `match_border` (player-colour window border px, Hyprland), `start_countdown` (seconds of 3-2-1 over the paused first frame, 0–10, 0 = off) |
 

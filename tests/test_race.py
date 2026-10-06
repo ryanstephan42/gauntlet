@@ -144,6 +144,10 @@ def test_race_config_isolates_input():
     assert b["input_player1_joypad_index"] == NO_PAD
     assert c["input_player1_up"] == "nul" and c["input_player1_joypad_index"] == 3
     assert a["input_pause_toggle"] == "nul"  # 'p' is player 2's start button
+    # vsync off by default: two vsynced windows on Wayland run at half speed
+    assert a["video_vsync"] is False and a["audio_sync"] is True
+    st.game_vsync = True
+    assert race_config(parts, [], st, 0)["video_vsync"] is True
 
 
 # ----------------------------------------------------------------------------- end to end
@@ -249,7 +253,7 @@ class FakePlacer:
         self.placed = {}
         self.calls = []
 
-    def area(self):
+    def area(self, pid=None):
         return (1000, 20, 2000, 1000)
 
     def windows(self):

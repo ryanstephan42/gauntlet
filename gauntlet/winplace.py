@@ -70,10 +70,15 @@ class Hyprland:
         except ValueError:
             return None
 
-    def area(self):
-        """(x, y, w, h) of the focused monitor minus bars, in layout coordinates."""
+    def area(self, pid=None):
+        """(x, y, w, h) minus bars, in layout coordinates, of the monitor showing `pid`'s window
+        (Gauntlet's own, so games never jump to whichever monitor has focus), else the focused one."""
         mons = self._json("monitors") or []
-        m = next((m for m in mons if m.get("focused")), mons[0] if mons else None)
+        home = None
+        if pid is not None:
+            home = next((c.get("monitor") for c in self._json("clients") or [] if c.get("pid") == pid), None)
+        m = next((m for m in mons if home is not None and m.get("id") == home), None)
+        m = m or next((m for m in mons if m.get("focused")), mons[0] if mons else None)
         if not m:
             return None
         scale = m.get("scale") or 1
@@ -104,6 +109,19 @@ class Hyprland:
             return self.place(wid, geometry["rect"])
         return self.run(["hyprctl", "dispatch", "settiled", sel]) is not None
 
+    def _workspace_at(self, x, y):
+        """Active workspace id of the monitor containing layout point (x, y), or None."""
+        for m in self._json("monitors") or []:
+            if not isinstance(m, dict) or not {"x", "y", "width", "height"} <= m.keys():
+                continue
+            scale = m.get("scale") or 1
+            w, h = m["width"] / scale, m["height"] / scale
+            if m.get("transform", 0) % 2:
+                w, h = h, w
+            if m["x"] <= x < m["x"] + w and m["y"] <= y < m["y"] + h:
+                return (m.get("activeWorkspace") or {}).get("id")
+        return None
+
     def place(self, wid, rect):
         x, y, w, h = rect
         sel = f"address:{wid}"
@@ -112,6 +130,12 @@ class Hyprland:
             # Window rules (e.g. Omarchy's "fullscreen on" for RetroArch) can force fullscreen;
             # fullscreenstate only acts on the focused window.
             cmds += [f"dispatch focuswindow {sel}", "dispatch fullscreenstate 0 0"]
+        # A window opens on the focused monitor; moving it by pixels alone leaves it owned by that
+        # monitor's workspace (drawn on the wrong screen), so send it to the target monitor's workspace.
+        ws = self._workspace_at(x + w // 2, y + h // 2)
+        current = (self._info.get(wid) or {}).get("workspace", {}).get("id")
+        if ws is not None and ws != current:
+            cmds.append(f"dispatch movetoworkspacesilent {ws},{sel}")
         cmds += [f"dispatch setfloating {sel}", f"dispatch resizewindowpixel exact {w} {h},{sel}",
                 f"dispatch movewindowpixel exact {x} {y},{sel}"]
         return self.run(["hyprctl", "--batch", " ; ".join(cmds)]) is not None
@@ -143,13 +167,29 @@ class Sway:
         except ValueError:
             return None
 
-    def area(self):
+    def area(self, pid=None):
         outs = self._json("get_outputs") or []
-        o = next((o for o in outs if o.get("focused")), outs[0] if outs else None)
+        home = self._output_of(pid) if pid is not None else None
+        o = next((o for o in outs if home and o.get("name") == home), None)
+        o = o or next((o for o in outs if o.get("focused")), outs[0] if outs else None)
         if not o:
             return None
         r = o["rect"]
         return (r["x"], r["y"], r["width"], r["height"])
+
+    def _output_of(self, pid):
+        def walk(node, output):
+            if node.get("type") == "output":
+                output = node.get("name")
+            if node.get("pid") == pid:
+                return output
+            for child in node.get("nodes", []) + node.get("floating_nodes", []):
+                found = walk(child, output)
+                if found:
+                    return found
+            return None
+        tree = self._json("get_tree")
+        return walk(tree, None) if tree else None
 
     def windows(self):
         found = []
@@ -225,8 +265,9 @@ class Placer:
         self._thread = None
 
     def area(self):
+        """The usable area of the monitor Gauntlet's window is on."""
         try:
-            return self.backend.area()
+            return self.backend.area(os.getpid())
         except (KeyError, TypeError, ValueError):
             return None
 

@@ -30,7 +30,7 @@ class FakeBackend:
         self.wins = list(windows)
         self.placed = []
 
-    def area(self):
+    def area(self, pid=None):
         return (100, 30, 2000, 1000)
 
     def windows(self):
@@ -102,6 +102,10 @@ def test_hyprland_backend():
         return "ok"
     h = winplace.Hyprland(run)
     assert h.area() == (1720, -1414, 2560, 1414)
+    mons[0]["id"], mons[1]["id"] = 0, 1
+    clients[0]["monitor"] = 0
+    assert h.area(42) == (0, 0, 3440, 1440)       # Gauntlet's own monitor wins over the focused one
+    assert h.area(999) == (1720, -1414, 2560, 1414)
     assert h.windows() == [("0xabc", 42), ("0xfff", 44)]
     assert h.focus("0xabc") and calls[-1] == ["hyprctl", "dispatch", "focuswindow", "address:0xabc"]
     assert h.place("0xabc", (1720, -1414, 1280, 1414))
@@ -113,6 +117,16 @@ def test_hyprland_backend():
     h.place("0xfff", (0, 0, 10, 10))  # forced fullscreen by a window rule: focus it and leave fullscreen first
     assert calls[-1][2].startswith("dispatch focuswindow address:0xfff ; dispatch fullscreenstate 0 0 ; "
                                    "dispatch setfloating address:0xfff")
+    assert "movetoworkspace" not in calls[-1][2]   # monitors without workspace info: position only
+    mons[1]["activeWorkspace"] = {"id": 3}
+    clients[0]["workspace"] = {"id": 1}
+    h.windows()
+    h.place("0xabc", (1720, -1414, 1280, 1414))   # opened on the other monitor: move it to DP-3's workspace
+    assert "dispatch movetoworkspacesilent 3,address:0xabc" in calls[-1][2]
+    clients[0]["workspace"] = {"id": 3}
+    h.windows()
+    h.place("0xabc", (1720, -1414, 1280, 1414))
+    assert "movetoworkspace" not in calls[-1][2]
     assert winplace.Hyprland(lambda *a, **k: None).area() is None
     assert h.decorate("0xabc", (255, 77, 0), 6)
     assert calls[-1] == ["hyprctl", "--batch", "dispatch setprop address:0xabc border_size 6 ; "
@@ -134,6 +148,11 @@ def test_sway_backend():
         return "[]"
     s = winplace.Sway(run)
     assert s.area() == (0, 0, 1920, 1080)
+    tree["nodes"][0]["name"] = "HDMI-A-1"
+    outs.append({"focused": False, "name": "HDMI-A-1", "rect": {"x": 1920, "y": 0, "width": 2560, "height": 1440}})
+    outs[0]["name"] = "DP-1"
+    assert s.area(43) == (1920, 0, 2560, 1440)
+    assert s.area(999) == (0, 0, 1920, 1080)
     assert sorted(s.windows()) == [(7, 42), (8, 43)]
     s.focus(8)
     assert calls[-1] == ["swaymsg", "[con_id=8] focus"]

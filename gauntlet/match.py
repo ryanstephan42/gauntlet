@@ -101,6 +101,9 @@ def build_config(participants, purchases, settings, turn_player=None):
     extra = collect_config([a for pu in purchases for a in pu.item.get("actions", [])],
                            settings.config_path)
     extra["input_max_users"] = max(1, len(participants)) if turn_player is None else 1
+    extra["video_vsync"] = bool(settings.game_vsync)
+    if not settings.game_vsync:
+        extra["audio_sync"] = True  # with vsync off, audio is what keeps the game at full (not double) speed
     if settings.assign_ports:
         for p in participants:
             if turn_player is not None and p.key != turn_player:
@@ -545,7 +548,8 @@ class MatchRunner:
             return rects
         if self.race.race:
             return tile_rects(n, area[2], area[3], area[0], area[1]) if area else tile_rects(n, *self.screen)
-        return None
+        # one window: float it over Gauntlet's monitor rather than fullscreen wherever focus happens to be
+        return [area] if area else None
 
     # -- race: one window per player ---------------------------------------------------
     _race_ref = None

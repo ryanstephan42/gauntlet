@@ -57,6 +57,9 @@ class Settings:
     poll_interval: float = 0.2
     close_delay: float = 3.0
     assign_ports: bool = True
+    # RetroArch vsync for match windows. Off by default: on Wayland two vsynced windows (a race) block
+    # each other and both run at half speed; audio sync still paces games at the right speed.
+    game_vsync: bool = False
     # Single-player challenges: everyone plays at once, one RetroArch window each (False = take turns)
     simultaneous_play: bool = True
     # retroarch input_driver for race windows ("" = auto: "udev" on Linux when the keyboard is readable,

@@ -202,6 +202,8 @@ class SettingsScreen(FormScreen):
               fmt=lambda v: "Race (all at once)" if v else "Take turns",
               help="Race: one RetroArch window per player, first to finish ends it for everyone."),
             F("race_mute_others", "Race: only player 1's window has sound", "bool", s.race_mute_others),
+            F("game_vsync", "Game vsync", "bool", s.game_vsync,
+              help="Off = full speed when several game windows run at once (audio keeps the pace)."),
             F("race_place_windows", "Float match windows into place (Hyprland/Sway)", "bool",
               s.race_place_windows),
             F("stage_layout", "Match layout", "bool", s.stage_layout,
@@ -248,7 +250,7 @@ class SettingsScreen(FormScreen):
         for key in ("starting_points", "win_points", "loss_points", "draw_points", "catchup_step",
                     "catchup_max", "streak_bonus", "streak_max", "max_items", "wagers", "fullscreen",
                     "tv_mode", "sound", "split_keyboard", "preferred_install", "retroarch_port",
-                    "assign_ports", "simultaneous_play", "race_mute_others", "race_input_driver",
+                    "assign_ports", "simultaneous_play", "race_mute_others", "game_vsync", "race_input_driver",
                     "race_place_windows", "stage_layout", "stage_hud_percent",
                     "match_border", "start_countdown"):
             setattr(s, key, v[key])
