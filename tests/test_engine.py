@@ -129,6 +129,36 @@ def test_read_metric_count_step_sums_block(client, fake):
     assert read_metric(mem, spec) == 3 + 70
 
 
+def test_read_metric_follows_pointer(client, fake):
+    mem = Memory(client, "swap32")
+    ptr = {"address": "0x100", "mask": "0xFFFFFF"}
+    spec = {"address": "0x47", "size": 1, "pointer": ptr, "add": [{"address": "0x70", "pointer": ptr, "scale": -16}]}
+    defaults = {"endian": "big"}
+    assert read_metric(mem, spec, 1, defaults) is None  # null pointer: object not loaded yet
+    mem.write(Var(0x100, 4, "big"), 0x80000200)
+    mem.write(Var(0x247, 1), 3)
+    mem.write(Var(0x270, 1), 1)
+    assert read_metric(mem, spec, 1, defaults) == 3 - 16
+    mem.write(Var(0x100, 4, "big"), 0x80000400)
+    mem.write(Var(0x447, 1), 5)
+    assert read_metric(mem, spec, 1, defaults) == 5
+    chained = {"address": "0x47", "pointer": {"address": "0x0", "mask": "0xFFFFFF",
+                                              "pointer": {"address": "0x500", "mask": "0xFFFFFF"}}}
+    assert read_metric(mem, chained, 1, defaults) is None
+    mem.write(Var(0x500, 4, "big"), 0x80000100)
+    assert read_metric(mem, chained, 1, defaults) == 5
+
+def test_metric_pointer_validation():
+    def game(metric):
+        return {"schema_version": 2, "meta": {"name": "T", "core": "c", "rom": "r", "players": 1},
+                "challenges": [{"id": "a", "name": "A", "mode": "turns", "metric": metric,
+                                "win": {"type": "reach", "value": 1}}]}
+    assert validate_game(game({"address": "0x47", "pointer": {"address": "0x100", "mask": "0xFFFFFF"}})) == []
+    assert any("pointer must be" in e for e in validate_game(game({"address": "0x47", "pointer": "0x100"})))
+    assert any("pointer" in e for e in validate_game(game({"address": "0x47", "pointer": {"size": 4}})))
+    assert any("pointer.pointer" in e for e in validate_game(game({"address": "0x47", "pointer": {
+        "address": "0x0", "pointer": {"address": "zz"}}})))
+
 # ----------------------------------------------------------------------------- client
 def test_client_status_and_chunked_read(client, fake):
     st = client.status()

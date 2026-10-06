@@ -9,7 +9,8 @@ Schema v2:
 A "var" is {address (hex str or {"1": hex, "2": hex}), stride, size, signed, endian, mask, bit}.
 A metric may also have add: [{var..., scale}]; its value is then its own value + sum(scale * term).
 The metric and each add term may have count/step: the sum of `count` values `step` bytes apart (e.g. one
-counter per level).
+counter per level), and pointer {address, size=4, mask}: the address is then an offset from the (masked)
+value stored at pointer.address, for objects that move between levels.
 """
 import copy
 import re
@@ -148,6 +149,14 @@ def _check_var(var, where, errors, per_player_ok=True):
 def _check_count(var, where, errors):
     if not isinstance(var, dict):
         return
+    if "pointer" in var:
+        ptr = var["pointer"]
+        if not isinstance(ptr, dict):
+            errors.append(f"{where}: pointer must be an object like {{\"address\": \"0x1F05C0\", \"mask\": "
+                          "\"0xFFFFFF\"}")
+        else:
+            _check_var(ptr, f"{where}.pointer", errors, per_player_ok=False)
+            _check_count({k: v for k, v in ptr.items() if k == "pointer"}, f"{where}.pointer", errors)
     if "count" in var and (not _is_int(var["count"]) or not 1 <= var["count"] <= 256):
         errors.append(f"{where}: count must be 1-256")
     if "step" in var:

@@ -4,7 +4,7 @@
     "system": "n64",
     "core": "mupen64plus_next",
     "players": 1,
-    "description": "Take turns racing Ancient Lake.",
+    "description": "Race a random Tracks-mode course from any of the five worlds.",
     "rom": "Diddy Kong Racing (USA) (En,Fr) (Rev 1).z64"
   },
   "memory": {
@@ -13,17 +13,33 @@
   },
   "challenges": [
     {
-      "id": "ancient_lake",
-      "name": "Win Ancient Lake",
+      "id": "win_race",
+      "name": "Win the Race",
       "mode": "turns",
-      "description": "Finish first at Ancient Lake: fastest win takes it, best place if nobody wins.",
+      "description": "Finish first on a random track (one per world): fastest win takes it, best place if nobody wins.",
       "metric": {
-        "address": "0x1e7097",
+        "address": "0x247",
         "size": 1,
+        "pointer": {
+          "address": "0x0",
+          "mask": "0xFFFFFF",
+          "pointer": {
+            "address": "0x11B46C",
+            "mask": "0xFFFFFF"
+          }
+        },
         "add": [
           {
-            "address": "0x1e70c0",
+            "address": "0x270",
             "size": 1,
+            "pointer": {
+              "address": "0x0",
+              "mask": "0xFFFFFF",
+              "pointer": {
+                "address": "0x11B46C",
+                "mask": "0xFFFFFF"
+              }
+            },
             "scale": -16
           }
         ]
@@ -37,7 +53,15 @@
       "on_timeout": "compare",
       "best_of": 1,
       "min_time": 1,
-      "start_state": "dkr_ancientlake_race.state"
+      "start_state": [
+        "dkr_ancientlake_race.state",
+        "dkr_fossilcanyon_race.state",
+        "dkr_hottopvolcano_race.state",
+        "dkr_whalebay_race.state",
+        "dkr_snowballvalley_race.state",
+        "dkr_greenwoodvillage_race.state",
+        "dkr_spacedustalley_race.state"
+      ]
     }
   ],
   "shop": []
