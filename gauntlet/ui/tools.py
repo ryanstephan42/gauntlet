@@ -1529,6 +1529,11 @@ class MemoryLab(FormScreen):
         note = self.system.ram_note if self.system else ""
         return f"{self.phase.upper()} - {self.message}" + (f"   ({note})" if note else "")
 
+    @property
+    def pads_to_game(self):
+        """While RetroArch is up, gamepads play the game; only keyboard/mouse drive this screen."""
+        return self.phase in ("starting", "ready")
+
     def hints(self):
         return [(Action.CONFIRM, "Select"), (Action.LEFT, "Change"), (Action.ALT, "Refresh"),
                 (Action.BACK, "Close")]
@@ -1849,6 +1854,11 @@ class StateCapture(BaseScreen):
         self.captured = None   # path of the newest complete state
         self.captured_at = None
         self.kept = False
+
+    @property
+    def pads_to_game(self):
+        """While RetroArch is up, gamepads play the game; only keyboard/mouse drive this screen."""
+        return self.phase in ("starting", "ready")
 
     @property
     def subtitle(self):

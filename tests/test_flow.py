@@ -525,6 +525,19 @@ def test_wizard_creates_game(tmp_path, monkeypatch):
         d.app.shutdown()
 
 
+def assert_pads_go_to_game(d, screen):
+    """A gamepad BACK must not reach Gauntlet while the screen's RetroArch is running."""
+    import pygame
+    real = d.app.input.translate
+    d.app.input.translate = lambda ev: InputEvent("pad:0", Action.BACK)
+    try:
+        d.app.process(pygame.event.Event(pygame.JOYBUTTONDOWN, instance_id=0, button=1))
+        d.settle()
+        assert d.screen is screen and not d.app.overlays
+    finally:
+        d.app.input.translate = real
+
+
 def test_memory_lab_search_against_fake(tmp_path, monkeypatch):
     d = make_app(tmp_path, monkeypatch, {"ram_size": 0x20000, "boot_delay": 0.2})
     try:
@@ -533,6 +546,7 @@ def test_memory_lab_search_against_fake(tmp_path, monkeypatch):
         lab = d.screen
         assert isinstance(lab, tools.MemoryLab)
         d.wait_for(lambda: lab.phase == "ready", what="memory lab ready")
+        assert_pads_go_to_game(d, lab)
         d.field("new")
         d.press(Action.CONFIRM)
         d.wait_for(lambda: lab.search is not None and not lab.busy, what="snapshot")
@@ -579,6 +593,7 @@ def test_capture_start_state_then_match_loads_it(driver):
     d.press(Action.START)                          # nothing captured yet: stays
     assert d.screen is cap
     d.wait_for(lambda: cap.phase == "ready", what="capture ready")
+    assert_pads_go_to_game(d, cap)
     d.press(Action.CONFIRM)                        # Gauntlet sends SAVE_STATE
     d.wait_for(lambda: cap.captured is not None, what="state captured")
     d.press(Action.START)                          # keep
