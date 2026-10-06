@@ -4,8 +4,9 @@
     "system": "n64",
     "core": "mupen64plus_next",
     "players": 1,
-    "description": "Race to the first Jiggy in Mumbo's Mountain.",
-    "rom": "Banjo-Kazooie (USA).z64"
+    "description": "Race through a random world (5 levels) with every move unlocked.",
+    "rom": "Banjo-Kazooie (USA).z64",
+    "image": "banjo_kazooie.png"
   },
   "memory": {
     "layout": "swap32",
@@ -16,7 +17,7 @@
       "id": "first_jiggy",
       "name": "First Jiggy",
       "mode": "turns",
-      "description": "From the entrance of Mumbo's Mountain (Spiral Mountain moves learned): first Jiggy, fastest wins.",
+      "description": "Random world entrance (Mumbo's Mountain, Treasure Trove Cove, Clanker's Cavern, Bubblegloop Swamp or Gobi's Valley), all moves unlocked: first Jiggy wins.",
       "metric": {
         "address": "0x3851E8",
         "size": 4
@@ -35,7 +36,44 @@
         "op": "eq",
         "value": 3
       },
-      "start_state": "bk_mumbos_mountain.state"
+      "start_state": [
+        "bk_mumbos_mountain.state",
+        "bk_treasure_trove_cove.state",
+        "bk_clankers_cavern.state",
+        "bk_bubblegloop_swamp.state",
+        "bk_gobis_valley.state"
+      ]
+    },
+    {
+      "id": "note_rush",
+      "name": "Note Rush",
+      "mode": "turns",
+      "description": "Random world entrance, all moves unlocked: first to 25 Musical Notes wins.",
+      "metric": {
+        "address": "0x385180",
+        "size": 4
+      },
+      "win": {
+        "type": "reach",
+        "value": 25
+      },
+      "time_limit": 300,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x37DAE4",
+        "size": 4,
+        "op": "eq",
+        "value": 3
+      },
+      "start_state": [
+        "bk_mumbos_mountain.state",
+        "bk_treasure_trove_cove.state",
+        "bk_clankers_cavern.state",
+        "bk_bubblegloop_swamp.state",
+        "bk_gobis_valley.state"
+      ]
     }
   ],
   "shop": [
@@ -65,5 +103,6 @@
         }
       ]
     }
-  ]
+  ],
+  "schema_version": 2
 }

@@ -4,7 +4,7 @@
     "system": "n64",
     "core": "mupen64plus_next",
     "players": 1,
-    "description": "Race through Jungle Japes.",
+    "description": "Race through a random level (5 worlds) with all five Kongs and every move unlocked.",
     "rom": "Donkey Kong 64 (USA).z64"
   },
   "memory": {
@@ -16,14 +16,36 @@
       "id": "first_banana",
       "name": "First Golden Banana",
       "mode": "turns",
-      "description": "From the start of Jungle Japes: first Golden Banana, fastest wins.",
+      "description": "Random level entrance (Japes, Aztec, Factory, Galleon or Fungi), all Kongs and moves unlocked: first Golden Banana wins.",
       "metric": {
-        "address": "0x7FC990",
+        "address": "0x7FC992",
         "size": 2,
+        "count": 7,
+        "step": "0x2",
         "add": [
           {
-            "address": "0x7FC9A0",
-            "size": 2
+            "address": "0x7FC9F0",
+            "size": 2,
+            "count": 7,
+            "step": "0x2"
+          },
+          {
+            "address": "0x7FCA4E",
+            "size": 2,
+            "count": 7,
+            "step": "0x2"
+          },
+          {
+            "address": "0x7FCAAC",
+            "size": 2,
+            "count": 7,
+            "step": "0x2"
+          },
+          {
+            "address": "0x7FCB0A",
+            "size": 2,
+            "count": 7,
+            "step": "0x2"
           }
         ]
       },
@@ -41,16 +63,50 @@
         "op": "eq",
         "value": 6
       },
-      "start_state": "dk64_japes_start.state"
+      "start_state": [
+        "dk64_japes.state",
+        "dk64_aztec.state",
+        "dk64_factory.state",
+        "dk64_galleon.state",
+        "dk64_fungi.state"
+      ]
     },
     {
       "id": "banana_bunch",
       "name": "Banana Bunch",
       "mode": "turns",
-      "description": "From the start of Jungle Japes, three minutes: most yellow bananas wins.",
+      "description": "Random level entrance, all Kongs and moves unlocked, three minutes: most coloured bananas (any Kong) wins.",
       "metric": {
-        "address": "0x7FC956",
-        "size": 2
+        "address": "0x7FC95A",
+        "size": 2,
+        "count": 7,
+        "step": "0x2",
+        "add": [
+          {
+            "address": "0x7FC9B8",
+            "size": 2,
+            "count": 7,
+            "step": "0x2"
+          },
+          {
+            "address": "0x7FCA16",
+            "size": 2,
+            "count": 7,
+            "step": "0x2"
+          },
+          {
+            "address": "0x7FCA74",
+            "size": 2,
+            "count": 7,
+            "step": "0x2"
+          },
+          {
+            "address": "0x7FCAD2",
+            "size": 2,
+            "count": 7,
+            "step": "0x2"
+          }
+        ]
       },
       "win": {
         "type": "compare",
@@ -66,7 +122,13 @@
         "op": "eq",
         "value": 6
       },
-      "start_state": "dk64_japes_start.state"
+      "start_state": [
+        "dk64_japes.state",
+        "dk64_aztec.state",
+        "dk64_factory.state",
+        "dk64_galleon.state",
+        "dk64_fungi.state"
+      ]
     }
   ],
   "shop": []

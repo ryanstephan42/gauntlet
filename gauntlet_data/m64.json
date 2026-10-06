@@ -4,7 +4,7 @@
     "system": "n64",
     "core": "mupen64plus_next",
     "players": 1,
-    "description": "Take turns: race to collect coins. Fastest wins.",
+    "description": "Coin races, star picks across a 120-star castle, and a Bowser 3 showdown.",
     "rom": "Super Mario 64 (USA).z64"
   },
   "memory": {
@@ -89,6 +89,63 @@
       },
       "best_of": 1,
       "start_state": "sm64_castle_grounds.state"
+    },
+    {
+      "id": "star_pick",
+      "name": "Star Pick",
+      "mode": "turns",
+      "description": "120-star castle, every door open. Pick any painting and grab any star - first star wins. Start floor is random.",
+      "metric": {
+        "address": "0x32DD84",
+        "size": 4,
+        "signed": true
+      },
+      "win": {
+        "type": "reach",
+        "value": 1
+      },
+      "time_limit": 420,
+      "on_timeout": "compare",
+      "min_time": 1,
+      "ready": {
+        "address": "0x32DDF8",
+        "size": 2,
+        "op": "eq",
+        "value": 6
+      },
+      "best_of": 1,
+      "start_state": [
+        "sm64_castle_lobby.state",
+        "sm64_castle_upstairs.state",
+        "sm64_castle_basement.state",
+        "sm64_castle_third_floor.state"
+      ]
+    },
+    {
+      "id": "bowser3",
+      "name": "Bowser's Last Stand",
+      "mode": "turns",
+      "description": "Straight into the Bowser in the Sky arena. Throw him into three bombs and grab the Grand Star first.",
+      "metric": {
+        "address": "0x32DD84",
+        "size": 4,
+        "signed": true
+      },
+      "win": {
+        "type": "reach",
+        "value": 1
+      },
+      "time_limit": 360,
+      "on_timeout": "compare",
+      "min_time": 1,
+      "ready": {
+        "address": "0x32DDF8",
+        "size": 2,
+        "op": "eq",
+        "value": 34
+      },
+      "best_of": 1,
+      "start_state": "sm64_bowser3.state"
     }
   ],
   "shop": [
@@ -152,10 +209,10 @@
           "value": 768,
           "delay": 3,
           "when": {
-            "address": "0x32DDF8",
+            "address": "0x33B21E",
             "size": 2,
-            "op": "eq",
-            "value": 16
+            "op": "ge",
+            "value": 256
           }
         }
       ]

@@ -8,6 +8,8 @@ Schema v2:
   shop:       [{id, name, cost, description, category, target, limit, actions[...]}]
 A "var" is {address (hex str or {"1": hex, "2": hex}), stride, size, signed, endian, mask, bit}.
 A metric may also have add: [{var..., scale}]; its value is then its own value + sum(scale * term).
+The metric and each add term may have count/step: the sum of `count` values `step` bytes apart (e.g. one
+counter per level).
 """
 import copy
 import re
@@ -143,6 +145,17 @@ def _check_var(var, where, errors, per_player_ok=True):
         errors.append(f"{where}: bit must be 0-63")
 
 
+def _check_count(var, where, errors):
+    if not isinstance(var, dict):
+        return
+    if "count" in var and (not _is_int(var["count"]) or not 1 <= var["count"] <= 256):
+        errors.append(f"{where}: count must be 1-256")
+    if "step" in var:
+        _check_hex(var["step"], where, errors, "step")
+        if "count" not in var:
+            errors.append(f"{where}: step needs count")
+
+
 def _check_condition(cond, where, errors):
     _check_var(cond, where, errors)
     if not isinstance(cond, dict):
@@ -221,6 +234,7 @@ def _validate_challenge(ch, where, errors):
     if mode == "manual":
         return
     _check_var(ch.get("metric"), f"{where}.metric", errors)
+    _check_count(ch.get("metric"), f"{where}.metric", errors)
     terms = (ch.get("metric") or {}).get("add") if isinstance(ch.get("metric"), dict) else None
     if terms is not None:
         if not isinstance(terms, list) or not terms:
@@ -228,6 +242,7 @@ def _validate_challenge(ch, where, errors):
         else:
             for i, term in enumerate(terms):
                 _check_var(term, f"{where}.metric.add[{i}]", errors)
+                _check_count(term, f"{where}.metric.add[{i}]", errors)
                 if isinstance(term, dict) and not _is_int(term.get("scale", 1)):
                     errors.append(f"{where}.metric.add[{i}]: scale must be an integer")
     win = ch.get("win")

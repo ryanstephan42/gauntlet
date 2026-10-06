@@ -113,6 +113,20 @@ def test_metric_add_validation():
     assert any("scale" in e for e in validate_game(game({"address": "0x10", "add": [{"address": "0x11",
                                                                                      "scale": "x"}]})))
     assert any("address" in e for e in validate_game(game({"address": "0x10", "add": [{"size": 1}]})))
+    assert validate_game(game({"address": "0x10", "count": 3, "step": "0x2", "add": [{"address": "0x20",
+                                                                                     "count": 2}]})) == []
+    assert any("count" in e for e in validate_game(game({"address": "0x10", "count": 0})))
+    assert any("step needs count" in e for e in validate_game(game({"address": "0x10", "step": "0x2"})))
+
+
+def test_read_metric_count_step_sums_block(client, fake):
+    mem = Memory(client, "swap32")
+    for i, v in enumerate([1, 2, 3, 4]):
+        Memory(client, "swap32").write(Var(0x40 + 0x10 * i + 2, 2, "big"), v)
+    assert read_metric(mem, {"address": "0x42", "size": 2, "endian": "big", "count": 4, "step": "0x10"}) == 10
+    spec = {"address": "0x42", "size": 2, "endian": "big", "count": 2, "step": "0x10",
+            "add": [{"address": "0x62", "size": 2, "endian": "big", "count": 2, "step": "0x10", "scale": 10}]}
+    assert read_metric(mem, spec) == 3 + 70
 
 
 # ----------------------------------------------------------------------------- client

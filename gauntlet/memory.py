@@ -141,16 +141,29 @@ def var_for(spec, port=None, defaults=None):
 def read_metric(memory, spec, port=None, defaults=None):
     """Read a metric: its own value plus each `add` term times its `scale` (default 1).
 
-    None if any part can't be read."""
-    value = memory.read(var_for(spec, port, defaults))
+    The metric and each term may have `count` (default 1) and `step` (default its size): the sum of `count`
+    values spaced `step` bytes apart, read as one block. None if any part can't be read."""
+    value = _read_summed(memory, spec, port, defaults)
     for term in spec.get("add") or ():
         if value is None:
             return None
-        extra = memory.read(var_for(term, port, defaults))
+        extra = _read_summed(memory, term, port, defaults)
         if extra is None:
             return None
         value += int(term.get("scale", 1)) * extra
     return value
+
+
+def _read_summed(memory, spec, port, defaults):
+    var = var_for(spec, port, defaults)
+    count = int(spec.get("count", 1))
+    if count <= 1:
+        return memory.read(var)
+    step = parse_int(spec.get("step", var.size))
+    block = memory.read_raw(Var(var.address, step * (count - 1) + var.size, var.endian))
+    if block is None:
+        return None
+    return sum(var.decode(block[i * step:i * step + var.size]) for i in range(count))
 
 
 def is_per_player(spec):
