@@ -4,7 +4,7 @@
     "system": "n64",
     "core": "mupen64plus_next",
     "players": 1,
-    "description": "Take turns as Mario against a CPU Pikachu.",
+    "description": "Mario against a CPU Pikachu on one of the eight stages.",
     "rom": "Super Smash Bros. (USA).z64"
   },
   "memory": {
@@ -16,7 +16,7 @@
       "id": "two_minute_brawl",
       "name": "Two-Minute Brawl",
       "mode": "turns",
-      "description": "A 2-minute time match vs Pikachu: best KOs minus falls wins.",
+      "description": "A 2-minute time match vs Pikachu on a random stage: best KOs minus falls wins.",
       "metric": {
         "address": "0x0A4D3C",
         "size": 4,
@@ -58,13 +58,22 @@
           }
         }
       ],
-      "start_state": "ssb_vs_mario_v_pika_time.state"
+      "start_state": [
+        "ssb_vs_mario_v_pika_time.state",
+        "ssb_kongojungle_time.state",
+        "ssb_hyrulecastle_time.state",
+        "ssb_planetzebes_time.state",
+        "ssb_yoshisisland_time.state",
+        "ssb_dreamland_time.state",
+        "ssb_sectorz_time.state",
+        "ssb_saffroncity_time.state"
+      ]
     },
     {
       "id": "plus_three",
       "name": "Plus Three",
       "mode": "turns",
-      "description": "First to be 3 KOs ahead of Pikachu: fastest wins.",
+      "description": "First to be 3 KOs ahead of Pikachu on a random stage: fastest wins.",
       "metric": {
         "address": "0x0A4D3C",
         "size": 4,
@@ -106,7 +115,16 @@
           }
         }
       ],
-      "start_state": "ssb_vs_mario_v_pika_time.state"
+      "start_state": [
+        "ssb_vs_mario_v_pika_time.state",
+        "ssb_kongojungle_time.state",
+        "ssb_hyrulecastle_time.state",
+        "ssb_planetzebes_time.state",
+        "ssb_yoshisisland_time.state",
+        "ssb_dreamland_time.state",
+        "ssb_sectorz_time.state",
+        "ssb_saffroncity_time.state"
+      ]
     }
   ],
   "shop": []
