@@ -90,6 +90,23 @@ Fixes from the first couch play-test.
    - Banjo-Kazooie: `bk_mumbos_mountain.state`, Mumbo's Mountain entrance with the Spiral Mountain moves learned.
    - Easiest way to add more: the challenge editor's "Capture from the game" (play to the spot, then "Save state now" in Gauntlet or a RetroArch save state, then "Keep it"), "Use a .state file" for an existing RetroArch state, or drop files into `start_states/` and list them in the JSON.
 
+## Phase 9: Multi-level challenges — DONE
+Each level-based challenge now starts from one of several states, picked at random per match (see "Multi-level start
+states" in `docs/ram-research.md`).
+1. Engine — DONE (`199637c`, `7f8ebea`). Metric vars may sum a block (`count`/`step`, e.g. one counter per level or per
+   Kong) and may be read through a chainable `pointer` (objects that move between levels). Schema checks and tests.
+2. Banjo-Kazooie — DONE (`199637c`). 5 world entrances with every move; new Note Rush.
+3. Donkey Kong 64 — DONE (`199637c`). 5 level entrances with all Kongs and moves; Golden/coloured bananas summed across Kongs.
+4. Super Mario 64 — DONE (`199637c`). Star Pick: 120-star castle (lobby, upstairs, basement, third floor), every door
+   open, player picks the star; Bowser 3: straight into the Bowser in the Sky arena, first Grand Star wins.
+5. Spyro (5 Artisans levels), Crash (6 island-one stages), Super Mario World (7 levels) and Pokémon Stadium 2 Battle
+   Now face-off (state saved before the random rental teams are drawn) — DONE (`4b0fe9b`).
+6. Mario Kart 64 (7 GP courses) and Super Mario Kart (8 tracks, new Race to the Flag) — DONE (`ffc18f3`).
+7. Diddy Kong Racing (7 tracks, every world, P1 racer via pointer) — DONE (`7f8ebea`, `c24a187`).
+8. Super Smash Bros. (all 8 stages) and GoldenEye (all 11 multiplayer maps) — DONE (`b56a9c7`, `c24a187`).
+9. Star Fox: Corneria on Level 1, 2 and 3; Clear Corneria now reads the stage-in-route counter `0x16D6` — DONE.
+10. Kirby's Dream Course — skipped: courses 2-4 are locked on a new save.
+
 ## Delivery order
 1. M1: Phase 0 + Phase 1 input/screen manager.
 2. M2: Phase 2 + Phase 3 client and referee (playable 2-player loop).
@@ -98,6 +115,7 @@ Fixes from the first couch play-test.
 5. M5: Phase 6 simultaneous play.
 6. M6: Phase 7 match presentation (stage layout, player borders, start countdown, in-window prototype).
 7. M7: Phase 8 play-test fixes.
+8. M8: Phase 9 multi-level challenges.
 
 ## Risks / decisions
 - RAM addresses per game are the hardest part; presets + watcher are key.

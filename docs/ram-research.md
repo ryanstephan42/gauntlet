@@ -513,7 +513,8 @@ house, is the earlier one.)
 | `0x76A0A8` | same | u32 | Map: 0x4C DK Rap, 0x50 main menu, 0xAB DK's House (first control), 0x22 DK Isles, 0x07 Jungle Japes | ✅ |
 | `0x76A0B1` | `0x76A0B2` | u8 | Map state: 8 in control, 24/25 cutscene | ✅ |
 | `0x7FC990 + 2 × level` | raw = logical ^ 2 | u16 | DK Golden Bananas per level, in level order: Japes 0x7FC990, Aztec 0x7FC992, Factory 0x7FC994, Galleon 0x7FC996, Fungi 0x7FC998, Caves 0x7FC99A, Castle 0x7FC99C, Helm 0x7FC99E, **Isles 0x7FC9A0** | ✅ Isles poked to 5 → pause shows 5; other levels 📝 by array order |
-| `0x7FC956` | `0x7FC954` | u16 | DK yellow (coloured) bananas | ✅ |
+| `0x7FC956` | `0x7FC954` | u16 | DK coins (the HUD value first read as "yellow bananas") | ✅ |
+| `0x7FC95A + 2 × level` | – | u16 | DK coloured bananas per level (Japes first); the other Kongs' blocks follow at +0x5E each | ✅ summed by Banana Bunch |
 | `0x744526` / `0x744524` / `0x74452A` / `0x744528` | – (RA raw) | u8 | Kong Battle wins P1 / P2 / P3 / P4 | 📝 |
 | `0x0101F0` | same | u32 | Loading / pause flag | 📝 |
 
@@ -785,12 +786,34 @@ bedroom (new game) is saved.
 
 ---
 
-## Pointers (needed by several challenges)
+## Multi-level start states (Phase 9)
 
-Diddy Kong Racing (racer objects), Luigi's Mansion (HUD Boo count) and Pokémon Gen 3 (save blocks) all keep the
-interesting values behind pointers that change between loads. Gauntlet's schema can't express pointers yet. A
-`"pointer": {"address": ..., "size": 4, "mask": ...}` field on a memory spec (read pointer → mask → add `address`)
-would cover all three. Until then, presets can use the fixed alternatives listed above: Boo flags, battle outcome
-and trainer ID, DKR's sorted racer table compared with P1's pointer. The bundled DKR preset instead reads P1's racer
-object at its fixed address in the bundled start state (`0x1E6E50`), which is stable because every match loads the
-same state.
+A challenge's `start_state` can be a list; each match picks one state at random and every player gets the same one.
+These sets were made with a scripted RetroArch harness that pokes RAM (or drives the menus) and saves a state. Each
+state was loaded again from a fresh launch and checked: right level, player in control, counters at their start values.
+
+| Game | States | How they were made |
+|---|---|---|
+| Banjo-Kazooie | 5: Mumbo's Mountain, Treasure Trove Cove, Clanker's Cavern, Bubblegloop Swamp, Gobi's Valley | From the Spiral Mountain state: moves `0x37B5A0 = 0xFFFFF` (all), map `0x37DAF5` (2 / 7 / 0x0B / 0x0D / 0x12), entrance `0x37DAF6`, then `0x37DAF4 = 1` loads it |
+| Donkey Kong 64 | 5: Jungle Japes, Angry Aztec, Frantic Factory, Gloomy Galleon, Fungi Forest | Permanent flags OR'd in at `0x7ED3AC` (all Kongs freed, cutscenes and training done), every Kong's moves/guns/instruments set in the per-Kong blocks from `0x7FC950` (stride 0x5E), then the warp above (map 0x07 / 0x26 / 0x1A / 0x1E / 0x30). Metrics sum each Kong's per-level counters with `count`/`step` |
+| Super Mario 64 | 4 castle floors (lobby, upstairs, basement, third floor) + Bowser 3 arena | 120-star save written to both save-buffer copies (`0x207700`, `0x207738`, with checksum), star count `0x33B21A = 120`, then a warp request: bytes level/area/node at `0x33B249`, `0x33B248 = 1`. Castle = level 6, Bowser in the Sky arena = level 34. `0x32DD84` (stars collected since the state) is reset before saving and is the metric |
+| Crash Bandicoot | 6: N. Sanity Beach, Jungle Rollers, Boulders, Upstream, Native Fortress, Up the Creek (+ Papu Papu) | From a map state with island one open: press right n times, then X; saved once `0x61994` reads 0 (in the stage) |
+| Spyro the Dragon | 5: Artisans, Stone Hill, Dark Hollow, Town Square, Toasty | In the Artisans homeworld, Spyro's position (`0x078A58` / `0x078A5C` / `0x078A60`, u32 x/y/z) is moved into each level's portal; saved when game state `0x0757D8` is back to 0 in the new level (`0x0758B4`) |
+| Super Mario World | 7: YI1, DP1, DP2, DP4, Butter Bridge 1, Cookie Mountain, Chocolate Island 1 | One state at the start of each level (game mode `0x0100 = 0x14`, `0x1493 = 0`) |
+| Mario Kart 64 | 7 GP courses: Luigi Raceway, Moo Moo Farm, Koopa Troopa Beach, Kalimari Desert, Choco Mountain, Mario Raceway, Royal Raceway | From the Luigi Raceway race state: set the decomp's `gCupSelection` / `gCourseIndexInCup` and request a game-state reload, so the next race loads the chosen course; saved on the starting grid |
+| Super Mario Kart | 8: Mario Circuit 1, Donut Plains 1 & 2, Ghost Valley 1, Choco Island 1, Koopa Beach 1, Vanilla Lake 1, Rainbow Road | From a cup-select state: cup `$0150`, track index `$0152`, `$0158 = 14`, `$0160 = 0x8000`, then `$32 = 2` (race-setup request); saved when `$0160` reads 0x0F00. New Race to the Flag challenge: lap counter `$10C1` reaches 133 (128 + 5 laps) |
+| Diddy Kong Racing | 7 Tracks-mode courses, every world (Ancient Lake, Fossil Canyon, Jungle Falls, Whale Bay, Snowball Valley, Greenwood Village, Spacedust Alley) | Picked in the Tracks menu. The racer object moves per track, so P1's racer is read through `gRacersByPort` (`0x11B46C`) with a chained `pointer` |
+| Super Smash Bros. | 8 stages, Mario vs CPU Pikachu, 2-minute time match | Stage byte `0x0A4D09` (VS settings + 1) written on the stage-select screen, then Start |
+| GoldenEye 007 | 11 multiplayer maps, 2P, Rockets | n64decomp/007 `front.c`: `MP_stage_selected` at `0x2B534` (players `0x2B520`, characters `0x2B524`, length `0x2B538`, aim `0x2B53C`, scenario `0x2B540`). From the MULTIPLAYER OPTIONS screen (`0x02A8C0 = 14`): write the stage ID (1 Temple, 2 Complex, 3 Caves, 4 Library, 5 Basement, 6 Stack, 7 Facility, 8 Bunker, 9 Archives, 10 Caverns, 11 Egypt; locked maps work too), press Start, wait 2.5 s (7 s for Facility, Bunker, Archives, Caverns) and save |
+| Star Fox | 3: Corneria on Level 1, 2 and 3 | Route map, see the Star Fox section |
+| Pokémon Stadium 2 | Battle Now face-off (one state) | Saved on the 2P Battle Now screen *before* the rental teams are drawn, so every match gets new random teams |
+
+Kirby's Dream Course was skipped: on a new save courses 2-4 are locked, and neither the course byte `0xD7BE` nor the
+pause menu got around it.
+
+## Pointers
+
+Gauntlet supports pointers: a var may have `"pointer": {"address": ..., "mask": ...}` (chainable). Its `address` is then
+an offset from the masked value stored at the pointer. Diddy Kong Racing uses it (`0x11B46C` → racer table → P1's
+racer). Luigi's Mansion (HUD Boo count) and Pokémon Gen 3 (save blocks) keep their values behind pointers too and can
+use the same field.

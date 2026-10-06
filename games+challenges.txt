@@ -6,6 +6,7 @@ RESEARCH NOTES (added under each game). Full address tables are in docs/ram-rese
   [RA ONLY 📝] Addresses from RetroAchievements code notes, not checked live (ROM missing or needs a late save).
   "Needs state" = the challenge starts deep in the game; make a save state there before templating.
   [IN ROTATION 🎮] Added to Gauntlet: gauntlet_data/<slug>.json + a preset; start states go in start_states/.
+  [MULTI-LEVEL 🎲] Several start states (levels / courses / maps); each match plays one at random.
   Addresses are in Gauntlet's preset address space (see the table at the top of docs/ram-research.md).
 
 Arcade
@@ -73,7 +74,8 @@ battletoads - sewer race
 Snes
 Super mario world - beat level
   [DONE ✅] RA 228, RoMM 78. Start state inside Yoshi's Island 1 saved.
-  [IN ROTATION 🎮] gauntlet_data/smw.json: Beat Yoshi's Island 1, Coin Grab.
+  [IN ROTATION 🎮] gauntlet_data/smw.json: Level Rush, Beat Yoshi's Island 1, Coin Grab.
+  [MULTI-LEVEL 🎲] 7 levels at random (YI1, DP1, DP2, DP4, Butter Bridge 1, Cookie Mountain, Choco Island 1).
   Key RAM: game mode 0x0100 (0x14 in level), level 0x13BF, goal timer 0x1493, exit type 0x0DD5 (1 normal, 2 secret,
            0x80 died/quit), lives 0x0DBE, coins 0x0DBF, dragon coins 0x1420.
   Win: 0x0DD5 becomes 1 or 2 while 0x13BF is the target level.
@@ -119,7 +121,8 @@ star fox
 PSX
 Crash bandicoot-beat level
   [DONE ✅] RA 10434, RoMM 622. Start states on the map and inside N. Sanity Beach saved.
-  [IN ROTATION 🎮] gauntlet_data/crash_bandicoot.json: Beat N. Sanity Beach, Box Breaker.
+  [IN ROTATION 🎮] gauntlet_data/crash_bandicoot.json: Beat N. Sanity Beach, Stage Rush, Box Breaker, Beat Papu Papu.
+  [MULTI-LEVEL 🎲] 6 island-one stages at random (Stage Rush, Box Breaker) + Papu Papu boss state.
   Key RAM: in-stage/map 0x61994 (0 stage, 1 map), stage 0x619C5, boxes broken 0x61985, lives 0x618ED.
   Win: 0x61994 goes 0 → 1 while 0x619C5 is the target stage.
   Other challenges: break all boxes in a level (gem); beat Papu Papu (stage 5); finish without dying;
@@ -154,6 +157,7 @@ tekken 3 - win match
 spyro - beat level
   [DONE ✅] RA 11279, RoMM 706. Start state at Artisans saved (first dragon in ~3 s).
   [IN ROTATION 🎮] gauntlet_data/spyro.json: Dragon Rescue, Gem Rush.
+  [MULTI-LEVEL 🎲] 5 Artisans-world levels at random (portal teleport via Spyro's position 0x078A58/5C/60).
   Key RAM: game state 0x0757D8 (0 in game), level 0x0758B4, lives 0x07582C, gems 0x075860, dragons 0x075750,
            dragons per level 0x0772D8 + 4n, gems per level 0x077420 + 4n.
   Win: rescue every dragon in a level, or the boss dragon (Toasty 0x772E8 0 → 1).
@@ -163,7 +167,8 @@ spyro - beat level
 N64
 pokemon stadium 2 - beat other player
   [DONE ✅] RA 10258, RoMM 367. Free Battle start state saved.
-  [IN ROTATION 🎮] gauntlet_data/pokemon_stadium_2.json: Free Battle.
+  [IN ROTATION 🎮] gauntlet_data/pokemon_stadium_2.json: Battle Now! Face-off, Free Battle.
+  [MULTI-LEVEL 🎲] Battle Now face-off: 2P state saved before the rental teams are drawn, so teams are random.
   Key RAM: game mode 0x09DE97 (0x10 Free Battle), battle state 0x11F301 (0x0E fighting, 0x2A over),
            P1 team HP 0x14528E/0x1452E6/0x14533E, P2 team HP 0x14576E/0x1457C6/0x14581E (u16).
   Win: state 0x2A with all P2 HP = 0 and some P1 HP > 0.
@@ -172,7 +177,8 @@ pokemon stadium 2 - beat other player
 
 Banjo Kazooie - first to get a Jiggy
   [DONE ✅] RA 10210, RoMM 305 (USA v1.0; RA notes need an offset). New-game state at Spiral Mountain saved. Now starts from bk_mumbos_mountain.state (warped past the tutorial, SM moves learned).
-  [IN ROTATION 🎮] gauntlet_data/banjo_kazooie.json: First Jiggy.
+  [IN ROTATION 🎮] gauntlet_data/banjo_kazooie.json: First Jiggy, Note Rush.
+  [MULTI-LEVEL 🎲] 5 world entrances at random, all moves (0x37B5A0 = 0xFFFFF); warp map 0x37DAF5 + load 0x37DAF4.
   Key RAM: game state 0x37DAE4 (3 in game), map 0x37DAF5, total jiggies 0x3851E8 (u32, verified by poke),
            health 0x3851A0, lives 0x3851A8, notes in world 0x385180.
   Win: 0x3851E8 goes above its start value.
@@ -182,6 +188,7 @@ Banjo Kazooie - first to get a Jiggy
 Donkey kong 64 - first to get a banana
   [DONE ✅] RA 10075, RoMM 325. State at first control in DK's House saved. Now starts from dk64_japes_start.state (Japes entrance, training barrels done).
   [IN ROTATION 🎮] gauntlet_data/dk64.json: First Golden Banana, Banana Bunch.
+  [MULTI-LEVEL 🎲] 5 level entrances at random, all Kongs/moves unlocked; GB/CB summed across Kongs (count/step).
   Key RAM: game state 0x755314 (6 in game), map 0x76A0A8, DK golden bananas 0x7FC990 + 2*level
            (Isles 0x7FC9A0 verified), DK coloured bananas 0x7FC956.
   Win: sum of GB counters rises (first GB is in Jungle Japes / DK Isles).
@@ -190,7 +197,8 @@ Donkey kong 64 - first to get a banana
 
 Diddy kong racing - win a race
   [DONE ✅] RA 10202 (notes don't match this ROM), RoMM 324 (USA Rev 1). Found by structure analysis.
-  [IN ROTATION 🎮] gauntlet_data/diddy_kong_racing.json: Win Ancient Lake.
+  [IN ROTATION 🎮] gauntlet_data/diddy_kong_racing.json: Win the Race.
+  [MULTI-LEVEL 🎲] 7 tracks at random (one+ per world); P1 racer read via pointer gRacersByPort 0x11B46C.
            Ancient Lake race start state saved.
   Key RAM: racer pointer table 0x1F05C0 (entry 0 = P1), position-sorted table 0x1F05F0, [ptr]+0x247 place,
            [ptr]+0x270 finished, [ptr]+0x245 final position. Needs pointer support in presets.
@@ -201,6 +209,7 @@ Diddy kong racing - win a race
 golden eye - first to 5 kills multiplayer
   [DONE ✅] RA 10073, RoMM 338. Temple 2P "First to 5" state saved.
   [IN ROTATION 🎮] gauntlet_data/goldeneye.json: First to 5, Three-Minute Frag.
+  [MULTI-LEVEL 🎲] all 11 MP maps at random (MP_stage_selected 0x2B534 written on the options screen).
   Key RAM: screen 0x02A8C0 (11 = MP match), player stats 0x079EF0 + 0x70*n, kills per victim +0x24 + 4*victim.
   Win: score = sum(kills[others]) - kills[self] reaches 5 (referee from RAM; poked scores don't end the match).
   Other challenges: first to 3 kills with pistols only; License to Kill mode; Facility / Dam single-player
@@ -217,7 +226,8 @@ mario party 3 - win a minigame
 
 mario kart 64 - win a race
   [DONE ✅] RA 10078, RoMM 350. Luigi Raceway GP start state saved.
-  [IN ROTATION 🎮] gauntlet_data/mk64.json: Win Luigi Raceway, Finish Fastest.
+  [IN ROTATION 🎮] gauntlet_data/mk64.json: Win the Race, Finish Fastest.
+  [MULTI-LEVEL 🎲] 7 GP courses at random.
   Key RAM: game state 0x0DC524 (4 racing), race status 0x0DC513 (5 finished), P1 place 0x0F6994 (0 = 1st),
            P1 laps 0x0F6998, P2 place 0x0F776C.
   Win: race status 5 with P1 place 0.
@@ -227,6 +237,7 @@ mario kart 64 - win a race
 smash 64 - win a match
   [DONE ✅] RA 10082, RoMM 386. Time match (Mario vs CPU Pikachu) state saved.
   [IN ROTATION 🎮] gauntlet_data/ssb.json: Two-Minute Brawl, Plus Three.
+  [MULTI-LEVEL 🎲] all 8 stages at random (stage byte 0x0A4D09).
   Key RAM: screen 0x0A4AD0 (22 match, 24 results), time remaining 0x0A4D1C, player structs 0x0A4D28 + 0x74*n
            (+0x02 kind, +0x03 char, +0x10 falls, +0x14 KOs, +0x18 + 4*victim KOs).
   Win: screen 24 and P1 (KOs - falls) beats everyone else.

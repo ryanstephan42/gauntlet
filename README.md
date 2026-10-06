@@ -124,8 +124,14 @@ Bundled games (addresses verified live on RetroDECK; see `docs/ram-research.md`)
 Most of the newer challenges start from a save state (`start_state`). Those states contain game
 data, so they aren't in the repository. Put them in `start_states/`; files there named `*.state*`
 are ignored by git. If a state is missing, the game boots normally and Gauntlet logs a warning.
-Challenges that only make sense from their state (Diddy Kong Racing reads the racer object at
-the address it has in that state) need it.
+Challenges that only make sense from their state (most level races) need it.
+
+Level-based challenges list several states and play a random one each match: Banjo-Kazooie and
+Donkey Kong 64 (5 worlds, everything unlocked), Super Mario 64 (castle floors with 120 stars, plus
+Bowser 3), Spyro (5 levels), Crash (6 stages), Super Mario World (7 levels), Mario Kart 64
+(7 courses), Super Mario Kart (8 tracks), Diddy Kong Racing (7 tracks), Smash (8 stages),
+GoldenEye (11 maps) and Star Fox (Corneria on all 3 routes). Pokémon Stadium 2's Battle Now
+starts before the rental teams are drawn, so teams are random every match.
 
 Outline of a game config:
 - `meta`: `name`, `system`, `core`, `rom` (required); `image`, `players`, `description`.
@@ -156,6 +162,11 @@ Outline of a game config:
 - A metric can combine values with `add`: a list of vars, each with an optional integer `scale`
   (default 1). The metric is its own value plus `scale × value` for each term. For example, a team's
   HP total, or kills minus suicides with `"scale": -1`.
+- A var can also sum a block of values with `count` and `step` (e.g. one counter per level:
+  `"count": 7, "step": "0x2"`), and can be read through a pointer with
+  `"pointer": {"address": "0x11B46C", "mask": "0xFFFFFF"}`: `address` is then an offset from the
+  masked value stored at the pointer. Pointers can be chained (Diddy Kong Racing reads P1's racer
+  this way).
 
 ## Development
 ```
