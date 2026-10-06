@@ -1,6 +1,6 @@
 # New game and challenge ideas (v3, for review)
 
-52 games, 4 challenges each. Use it as a pool to pick priorities from.
+52 games, 4 challenges each. Section E games are listed as added; the old Super Mario World, Punch-Out, Banjo-Kazooie, Star Fox 64, Crash Bandicoot and Pokemon Emerald entries were removed because they already exist in the repo. Use it as a pool to pick priorities from.
 
 ## Ground rules (from review)
 - **Mostly race.** Everyone plays at once from the same start state; first to the goal wins. **V** (versus) only for fighters
@@ -13,6 +13,18 @@
 
 Format: `Name [tier] (mode)`: what happens. *Likely win condition.* RAM addresses are not researched yet.
 Games already in `games+challenges.txt` or `gauntlet_data/` are marked (existing).
+
+---
+
+## Build priority (by system)
+Priority follows which systems have verified RAM reads. Within a tier, pick by the "first picks" list below.
+1. **Tier 1: NES, SNES, N64** (RAM reads proven). Build here first.
+   - NES: Mega Man 2, Super Mario Bros., Super Mario Bros. 3, Kirby's Adventure, Contra, Castlevania, Ninja Gaiden, Pac-Man, Donkey Kong, Dr. Mario/Tetris, Punch-Out (existing).
+   - SNES: Super Metroid, ALttP, FF6, Chrono Trigger, Super Mario World (existing), Yoshi's Island, DKC, Mega Man X, Super Mario RPG, SF2 (existing).
+   - N64: Ocarina of Time, Majora's Mask, Super Mario 64 (existing), GoldenEye, Perfect Dark, Mario Kart 64 (existing), Smash 64 (existing), Paper Mario.
+2. **Tier 2: PSX and GameCube** (very cool, RAM maps need verifying). PSX: MGS, FF7, SotN, RE/RE2, Doom, Tekken 3, CTR, Tony Hawk 2.
+   GameCube: F-Zero GX, Luigi's Mansion, Resident Evil (GC). GameCube is capped at 2 race windows (see below).
+3. **Tier 3: everything else** (RAM not yet checked, mostly lighter cores). GB/GBA, Genesis, Neo Geo, TurboGrafx-16, arcade. PS2 is last (turns only).
 
 ---
 
@@ -196,11 +208,11 @@ Games already in `games+challenges.txt` or `gauntlet_data/` are marked (existing
 
 ## E. New games (the 25 added this round)
 
-### 28. Super Mario World (SNES)
-1. **Beat Yoshi's Island 1** [XS] (R). *exit flag*
-2. **Find the secret exit** [S] (R*): Donut Plains 1. *exit type = 2*
-3. **Free the first Yoshi** [XS] (R). *Yoshi flag*
-4. **Beat Bowser** [L] (R*): the final fight. *boss HP = 0*
+### 28. Metal Slug (Neo Geo)
+1. **Rescue the first POW** [XS] (R). *POW count*
+2. **Beat Mission 1** [S] (R). *mission clear flag*
+3. **Pick up the Heavy Machine Gun** [XS] (R). *weapon flag*
+4. **Beat the Mission 1 boss** [S] (R*). *boss HP = 0*
 
 ### 29. Super Mario Bros. 3 (NES)
 1. **Get the Raccoon Leaf** [XS] (R). *power-up state*
@@ -226,11 +238,11 @@ Games already in `games+challenges.txt` or `gauntlet_data/` are marked (existing
 3. **Beat the Level 1 boss** [S] (R*). *boss HP = 0*
 4. **Beat Java (Level 3 boss)** [S] (R*). *boss HP = 0*
 
-### 33. Punch-Out!! (NES) (existing)
-1. **Beat Glass Joe** [XS] (R). *opponent KO flag*
-2. **Beat Bald Bull** [S] (R*). *boss HP = 0*
-3. **Beat Piston Hurricane** [S] (R*). *boss HP = 0*
-4. **Beat Mike Tyson** [L] (R*). *boss HP = 0*
+### 33. Samurai Shodown II (Neo Geo)
+1. **First hit** [XS] (V). *hit flag*
+2. **Win a round** [S] (V). *rounds won*
+3. **Perfect round** [S] (V). *HP at round end*
+4. **Beat Kuroko** [S] (R*): the hidden referee fight. *boss HP = 0*
 
 ### 34. Castlevania (NES)
 1. **Get the Whip upgrade** [XS] (R). *item flag*
@@ -256,17 +268,17 @@ Games already in `games+challenges.txt` or `gauntlet_data/` are marked (existing
 3. **Beat Goht** [S] (R*). *boss HP = 0*
 4. **Stop the Moon** [L] (R*). *boss HP = 0*
 
-### 38. Banjo-Kazooie (N64)
-1. **Get the first Jiggy** [XS] (R). *jiggy count*
-2. **Beat Mumbo's first transformation** [S] (R*). *transform flag*
-3. **Beat Mr. Vile** [S] (R*): the Gobi's Valley snake contest. *contest flag*
-4. **Beat Gruntilda** [L] (R*). *boss HP = 0*
+### 38. Yoshi's Island (SNES)
+1. **Beat 1-1** [XS] (R). *level complete flag*
+2. **Collect 20 stars to finish a level** [S] (R). *star counter*
+3. **Beat Burt the Bashful** [S] (R*). *boss HP = 0*
+4. **Beat Baby Bowser** [L] (R*). *boss HP = 0*
 
-### 39. Star Fox 64 (N64)
-1. **Clear Corneria** [S] (R). *level complete flag*
-2. **Beat Sector Y** [S] (R). *level complete flag*
-3. **Beat Star Wolf** [S] (R*). *boss HP = 0*
-4. **Beat Andross** [L] (R*). *boss HP = 0*
+### 39. Bonk's Adventure (TurboGrafx-16)
+1. **Beat Stage 1** [XS] (R). *stage clear flag*
+2. **Beat the Stage 1 boss** [S] (R*). *boss HP = 0*
+3. **Get the first Meat Power-up** [XS] (R). *power-up flag*
+4. **Beat King Drool** [L] (R*). *boss HP = 0*
 
 ### 40. Perfect Dark (N64)
 1. **Beat dataDyne Central** [S] (R). *level complete flag*
@@ -274,11 +286,11 @@ Games already in `games+challenges.txt` or `gauntlet_data/` are marked (existing
 3. **Beat Carrington Institute** [S] (R). *level complete flag*
 4. **Beat Elvis** [L] (R*). *boss HP = 0*
 
-### 41. Crash Bandicoot (PSX)
-1. **Beat N. Sanity Beach** [XS] (R). *level complete flag*
-2. **Beat Papu Papu** [S] (R*). *boss HP = 0*
-3. **Beat Ripper Roo** [S] (R*). *boss HP = 0*
-4. **Beat Dr. Cortex** [L] (R*). *boss HP = 0*
+### 41. R-Type (TurboGrafx-16)
+1. **Get the first Force pod** [XS] (R). *item flag*
+2. **Beat Stage 1** [S] (R). *stage clear flag*
+3. **Beat Dobkeratops** [S] (R*): the Stage 1 boss. *boss HP = 0*
+4. **Beat Stage 3** [S] (R*). *stage clear flag*
 
 ### 42. Resident Evil (PSX / GameCube)
 1. **Get the Mansion key** [XS] (R). *item flag*
@@ -298,11 +310,11 @@ Games already in `games+challenges.txt` or `gauntlet_data/` are marked (existing
 3. **Beat Stage 1** [XS] (R). *stage clear flag*
 4. **Pick the Fire + Force weapon** [XS] (R). *weapon flag*
 
-### 45. Pokemon Emerald (GBA)
-1. **Pick a starter** [XS] (R). *party flag*
-2. **Beat Roxanne** [S] (R*). *badge flag*
-3. **Catch a Pokemon in Petalburg Woods** [S] (R*). *party flag*
-4. **Beat the Champion** [L] (R*). *flag*
+### 45. Paper Mario (N64)
+1. **Beat Goomba Road** [XS] (R). *event flag*
+2. **Beat Kent C. Koopa** [S] (R*). *boss HP = 0*
+3. **Beat Bowser (first fight)** [S] (R*). *boss HP = 0*
+4. **Beat Bowser at the end** [L] (R*). *boss HP = 0*
 
 ### 46. Metroid: Zero Mission (GBA)
 1. **Get the Morph Ball** [XS] (R). *item flag*
@@ -340,7 +352,7 @@ Games already in `games+challenges.txt` or `gauntlet_data/` are marked (existing
 3. **Do the first gap** [XS] (R). *gap flag*
 4. **Do a 900** [XS] (R*): the famous trick. *trick flag*
 
-### 52. Devil May Cry 3 (PS2) (T)
+### 52. Devil May Cry 3 (PS2, turns only, Tier 3)
 1. **Beat Cerberus** [S] (T*). *boss HP = 0*
 2. **Beat Agni and Rudra** [S] (T*). *boss HP = 0*
 3. **Pick up the first weapon** [XS] (T). *item flag*
