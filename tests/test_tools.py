@@ -153,6 +153,18 @@ def test_pack_carries_start_states(tmp_path):
     assert imported == ["Pack Game"] and errors == ["skipped start_states/pg_m.state"]
 
 
+def test_pack_carries_every_start_state_of_a_list(tmp_path):
+    states = tmp_path / "s"
+    states.mkdir()
+    for n in ("a.state", "b.state"):
+        (states / n).write_bytes(n.encode())
+    g = _game("Pack Game")
+    g["challenges"][0]["start_state"] = ["a.state", "b.state"]
+    zp = export_pack([g], str(tmp_path / "p.zip"), str(tmp_path / "a"), str(tmp_path / "c"), [str(states)])
+    names = zipfile.ZipFile(zp).namelist()
+    assert "start_states/a.state" in names and "start_states/b.state" in names
+
+
 def test_pack_rejects_traversal_and_invalid(tmp_path):
     zp = tmp_path / "evil.zip"
     with zipfile.ZipFile(zp, "w") as z:

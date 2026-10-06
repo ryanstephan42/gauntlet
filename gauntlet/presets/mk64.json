@@ -1,0 +1,104 @@
+{
+  "id": "mk64_n64_usa",
+  "title": "Mario Kart 64",
+  "system": "n64",
+  "match": [
+    "mario kart 64"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + mupen64plus_next, Mario Kart 64 (USA). Game state $0DC524 (4 racing); race status $0DC513 (3 running, 5 finished); P1 place $0F6994 (0 = 1st); P1 laps $0F6998 (poked 2 -> finished, status 5, '1st')",
+  "game": {
+    "meta": {
+      "name": "Mario Kart 64",
+      "system": "n64",
+      "core": "mupen64plus_next",
+      "players": 1,
+      "description": "50cc Grand Prix race on a random course (7 courses)."
+    },
+    "memory": {
+      "layout": "swap32",
+      "endian": "big"
+    },
+    "challenges": [
+      {
+        "id": "win_race",
+        "name": "Win the Race",
+        "mode": "turns",
+        "description": "A random course each round: finish 1st, fastest win takes it; best place if nobody wins.",
+        "metric": {
+          "address": "0x0F6994",
+          "size": 2,
+          "add": [
+            {
+              "address": "0x0F6994",
+              "size": 2,
+              "scale": 15
+            },
+            {
+              "address": "0x0DC513",
+              "size": 1,
+              "scale": -1
+            }
+          ]
+        },
+        "win": {
+          "type": "equals",
+          "value": -5,
+          "order": "low"
+        },
+        "time_limit": 360,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0DC524",
+          "size": 4,
+          "op": "eq",
+          "value": 4
+        },
+        "start_state": [
+          "mk64_luigi_raceway_race.state",
+          "mk64_moo_moo_farm_race.state",
+          "mk64_koopa_beach_race.state",
+          "mk64_kalimari_desert_race.state",
+          "mk64_choco_mountain_race.state",
+          "mk64_mario_raceway_race.state",
+          "mk64_royal_raceway_race.state"
+        ]
+      },
+      {
+        "id": "time_trial",
+        "name": "Finish Fastest",
+        "mode": "turns",
+        "description": "A random course each round: just finish the 3 laps, fastest wins.",
+        "metric": {
+          "address": "0x0DC513",
+          "size": 1
+        },
+        "win": {
+          "type": "equals",
+          "value": 5
+        },
+        "time_limit": 360,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0DC524",
+          "size": 4,
+          "op": "eq",
+          "value": 4
+        },
+        "start_state": [
+          "mk64_luigi_raceway_race.state",
+          "mk64_moo_moo_farm_race.state",
+          "mk64_koopa_beach_race.state",
+          "mk64_kalimari_desert_race.state",
+          "mk64_choco_mountain_race.state",
+          "mk64_mario_raceway_race.state",
+          "mk64_royal_raceway_race.state"
+        ]
+      }
+    ],
+    "shop": []
+  }
+}

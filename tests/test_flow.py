@@ -138,7 +138,8 @@ def make_app(tmp_path, monkeypatch, script=None, game=GAME, write_game=True):
     monkeypatch.setattr("gauntlet.match.udev_keyboard_available", lambda: False)
     st = Settings(data_dir=str(data), state_dir=str(tmp_path / "state"), start_states_dir=str(tmp_path / "ss"), core_dir=str(cores),
                   rom_dir=str(tmp_path), retroarch_port=free_port(), poll_interval=0.05, close_delay=0.1,
-                  boot_timeout=15, sound=False, split_keyboard=True, starting_points=10)
+                  boot_timeout=15, sound=False, split_keyboard=True, starting_points=10,
+                  start_countdown=0)
     launcher = Launcher(st, installs=[Install("Fake", [sys.executable, "-m", "gauntlet.fakera"])])
     app = App(st, launcher=launcher, size=(1280, 720), audio=False, settings_path=str(tmp_path / "settings.json"))
     app.manager.push(flow.MainMenu(app))
@@ -232,6 +233,49 @@ def test_full_versus_session_with_fake_retroarch(driver):
     assert stats["history"] and stats["history"][-1]["game"] == "Fake Fighter"
     d.press(Action.CONFIRM)
     assert isinstance(d.screen, flow.MainMenu)
+
+
+def test_wide_match_window_draws_the_scoreboard_strip(driver, monkeypatch):
+    import pygame
+    d = driver
+    start_session(d)
+    match = shop_and_launch(d)
+    d.wait_for(lambda: match.snap.get("values"), what="live values")
+    assert match.power_ups(0) == [("Boost", True)] and match.power_ups(1) == []
+    assert match.player_status(0)[0] == "bar"
+    calls = []
+    real = match.draw_strip
+    monkeypatch.setattr(match, "draw_strip", lambda p, h: (calls.append(h), real(p, h)))
+    painter = d.app.painter
+    for size in ((2560, 354), (1280, 720)):
+        surf = pygame.Surface(size)
+        painter.set_surface(surf)
+        try:
+            match.draw(surf)
+        finally:
+            painter.set_surface(d.app.screen)
+    assert len(calls) == 1 and abs(calls[0] - 1280 * 354 / 2560) < 1e-6
+    d.wait_for(lambda: isinstance(d.screen, flow.ResultsScreen), what="results")
+
+
+def test_match_screen_shows_the_start_countdown(driver):
+    import pygame
+    d = driver
+    d.app.settings.start_countdown = 2
+    start_session(d)
+    match = shop_and_launch(d)
+    seen = set()
+    d.wait_for(lambda: (seen.add(match.count()), match.snap.get("phase") == "playing")[1], what="playing")
+    assert {"2", "1", "GO!"} <= seen, seen
+    assert match.headline() in ("GO!", "FIGHT!")
+    surf = pygame.Surface((2560, 354))
+    d.app.painter.set_surface(surf)
+    try:
+        match.draw(surf)
+    finally:
+        d.app.painter.set_surface(d.app.screen)
+    d.wait_for(lambda: isinstance(d.screen, flow.ResultsScreen), what="results")
+    assert match.count() is None
 
 
 def test_manual_challenge_reports_result(driver):
@@ -481,6 +525,19 @@ def test_wizard_creates_game(tmp_path, monkeypatch):
         d.app.shutdown()
 
 
+def assert_pads_go_to_game(d, screen):
+    """A gamepad BACK must not reach Gauntlet while the screen's RetroArch is running."""
+    import pygame
+    real = d.app.input.translate
+    d.app.input.translate = lambda ev: InputEvent("pad:0", Action.BACK)
+    try:
+        d.app.process(pygame.event.Event(pygame.JOYBUTTONDOWN, instance_id=0, button=1))
+        d.settle()
+        assert d.screen is screen and not d.app.overlays
+    finally:
+        d.app.input.translate = real
+
+
 def test_memory_lab_search_against_fake(tmp_path, monkeypatch):
     d = make_app(tmp_path, monkeypatch, {"ram_size": 0x20000, "boot_delay": 0.2})
     try:
@@ -489,6 +546,7 @@ def test_memory_lab_search_against_fake(tmp_path, monkeypatch):
         lab = d.screen
         assert isinstance(lab, tools.MemoryLab)
         d.wait_for(lambda: lab.phase == "ready", what="memory lab ready")
+        assert_pads_go_to_game(d, lab)
         d.field("new")
         d.press(Action.CONFIRM)
         d.wait_for(lambda: lab.search is not None and not lab.busy, what="snapshot")
@@ -535,6 +593,7 @@ def test_capture_start_state_then_match_loads_it(driver):
     d.press(Action.START)                          # nothing captured yet: stays
     assert d.screen is cap
     d.wait_for(lambda: cap.phase == "ready", what="capture ready")
+    assert_pads_go_to_game(d, cap)
     d.press(Action.CONFIRM)                        # Gauntlet sends SAVE_STATE
     d.wait_for(lambda: cap.captured is not None, what="state captured")
     d.press(Action.START)                          # keep
@@ -544,11 +603,29 @@ def test_capture_start_state_then_match_loads_it(driver):
     assert os.path.isfile(saved)
     d.wait_for(lambda: cap.process.poll() is not None, what="RetroArch closed")
     assert "SAVE_STATE" in d.fake_log()
+    # a second state: each match then picks one of them
+    d.field("start_state")
+    d.press(Action.CONFIRM)
+    d.choose("Capture from the game (add another)...")
+    cap = d.screen
+    assert isinstance(cap, tools.StateCapture) and cap.name == "fake_fighter_ko_2.state"
+    d.wait_for(lambda: cap.phase == "ready", what="capture ready")
+    d.press(Action.CONFIRM)
+    d.wait_for(lambda: cap.captured is not None, what="second state captured")
+    d.press(Action.START)
+    assert d.screen is ed and ed.ch["start_state"] == ["fake_fighter_ko.state", "fake_fighter_ko_2.state"]
+    assert ed.state_label() == "2 states, one picked per match"
+    d.wait_for(lambda: cap.process.poll() is not None, what="RetroArch closed")
+    d.field("start_state")
+    d.press(Action.CONFIRM)
+    d.choose("Remove one...")
+    d.choose("fake_fighter_ko.state")
+    assert ed.ch["start_state"] == "fake_fighter_ko_2.state"
     d.press(Action.START)                          # editor done
     assert d.screen is wiz
     d.press(Action.START)                          # save (review step)
     assert isinstance(d.screen, tools.GamesManager)
-    assert d.app.games[0]["challenges"][0]["start_state"] == "fake_fighter_ko.state"
+    assert d.app.games[0]["challenges"][0]["start_state"] == "fake_fighter_ko_2.state"
     d.press(Action.BACK)
     assert isinstance(d.screen, flow.MainMenu)
     start_session(d)

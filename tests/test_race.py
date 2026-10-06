@@ -144,6 +144,10 @@ def test_race_config_isolates_input():
     assert b["input_player1_joypad_index"] == NO_PAD
     assert c["input_player1_up"] == "nul" and c["input_player1_joypad_index"] == 3
     assert a["input_pause_toggle"] == "nul"  # 'p' is player 2's start button
+    # vsync off by default: two vsynced windows on Wayland run at half speed
+    assert a["video_vsync"] is False and a["audio_sync"] is True
+    st.game_vsync = True
+    assert race_config(parts, [], st, 0)["video_vsync"] is True
 
 
 # ----------------------------------------------------------------------------- end to end
@@ -181,7 +185,8 @@ def setup(tmp_path, monkeypatch, script, n=2):
     monkeypatch.setenv("GAUNTLET_FAKE_LOG", str(tmp_path / "fake{port}.log"))
     monkeypatch.setenv("PYTHONPATH", REPO)
     st = Settings(state_dir=str(tmp_path / "state"), core_dir=str(cores), retroarch_port=base,
-                  poll_interval=0.05, close_delay=0.1, boot_timeout=10, start_states_dir=str(tmp_path / "ss"))
+                  poll_interval=0.05, close_delay=0.1, boot_timeout=10, start_states_dir=str(tmp_path / "ss"),
+                  start_countdown=0)
     launcher = Launcher(st, installs=[Install("Fake", [sys.executable, "-m", "gauntlet.fakera"])])
     game = normalize_game({"schema_version": 2,
                            "meta": {"name": "Fake", "system": "snes", "core": "fake", "rom": str(rom)},
@@ -224,8 +229,23 @@ def test_race_first_to_goal_closes_every_window(tmp_path, monkeypatch):
     assert cfg_b["input_player1_joypad_index"] == "1"
 
 
+def test_race_countdown_pauses_every_window_and_releases_them_together(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [
+        {"boot_delay": 0.2, "events": [{"at": 1.5, "address": 0x10, "bytes": [5]}]},
+        {"boot_delay": 1.5, "events": [{"at": 2.0, "address": 0x10, "bytes": [5]}]}]})
+    st.start_countdown = 1
+    runner = MatchRunner(launcher, game, REACH, [pad("a", 0), pad("b", 1)], [], st)
+    snap = run(runner)
+    # Without the hold A's early boot would win it; frozen on its first frame, A gets no head start
+    assert snap["phase"] == "finished" and runner.verdict.winners == ["b"], snap
+    for log in logs:
+        cmds = [line for line in log.read_text().splitlines()
+                if line.startswith(("PAUSE_TOGGLE", "SHOW_MSG", "FRAMEADVANCE"))]
+        assert cmds[:5] == ["PAUSE_TOGGLE", "SHOW_MSG 1", "FRAMEADVANCE", "PAUSE_TOGGLE", "SHOW_MSG GO!"], cmds
+
+
 class FakePlacer:
-    """A compositor whose windows belong to each launched process (fakera opens none)."""
+    """A compositor showing Gauntlet's own window and one per launched RetroArch (fakera opens none)."""
     name = "Fake"
 
     def __init__(self):
@@ -233,11 +253,12 @@ class FakePlacer:
         self.placed = {}
         self.calls = []
 
-    def area(self):
+    def area(self, pid=None):
         return (1000, 20, 2000, 1000)
 
     def windows(self):
-        return [(f"w{i.process.pid}", i.process.pid) for i in self.runner.instances if i.process]
+        procs = [i.process for i in self.runner.instances] + [self.runner.process]
+        return [("gauntlet", os.getpid())] + [(f"w{p.pid}", p.pid) for p in procs if p]
 
     def place(self, wid, rect):
         self.placed[wid] = rect
@@ -248,13 +269,22 @@ class FakePlacer:
         self.calls.append((wid, "focus"))
         return True
 
+    def geometry(self, wid):
+        return {"floating": False, "rect": (0, 0, 800, 600)}
+
+    def restore(self, wid, geometry):
+        self.calls.append((wid, "restore", geometry["floating"]))
+        return True
+
 
 def test_race_windows_are_placed_on_their_tiles(tmp_path, monkeypatch):
     st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [
         {"events": [{"at": 1.5, "address": 0x10, "bytes": [5]}]}, {}]})
+    st.stage_layout = False
     backend = FakePlacer()
     runner = MatchRunner(launcher, game, REACH, [pad("a", 0), pad("b", 1)], [], st, placer=backend)
     backend.runner = runner
+    assert not runner.stage
     snap = run(runner)
     assert snap["phase"] == "finished", snap
     pids = [i.process.pid for i in runner.instances]
@@ -264,6 +294,74 @@ def test_race_windows_are_placed_on_their_tiles(tmp_path, monkeypatch):
     cfg_b = read_cfg(os.path.join(st.sub_state("retroarch"), "race_p2.cfg"))
     assert cfg_b["video_windowed_position_x"] == "2000"  # RetroArch's own keys agree with the tile
     assert not runner._placer._thread.is_alive()
+
+
+def test_race_stage_layout_games_on_top_scoreboard_below(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [
+        {"events": [{"at": 1.5, "address": 0x10, "bytes": [5]}]}, {}]})
+    st.start_countdown = 1
+    backend = FakePlacer()
+    runner = MatchRunner(launcher, game, REACH, [pad("a", 0), pad("b", 1)], [], st, placer=backend)
+    backend.runner = runner
+    assert runner.stage
+    snap = run(runner)
+    assert snap["phase"] == "finished", snap
+    pids = [i.process.pid for i in runner.instances]
+    assert backend.placed == {f"w{pids[0]}": (1000, 20, 1000, 750), f"w{pids[1]}": (2000, 20, 1000, 750),
+                              "gauntlet": (1000, 770, 2000, 250)}
+    assert snap["hud"] == (1000, 770, 2000, 250)
+    assert ("gauntlet", "focus") not in backend.calls  # only game windows are focused
+    assert backend.calls[-1] == ("gauntlet", "restore", False)  # put back before the result shows
+    for log in logs:  # the strip shows the countdown, so RetroArch's OSD stays clean
+        text = log.read_text()
+        assert "FRAMEADVANCE" in text and "SHOW_MSG 1" not in text and "SHOW_MSG GO!" in text
+
+
+class BorderPlacer(FakePlacer):
+    borders = True
+
+    def decorate(self, wid, rgb, width):
+        self.calls.append((wid, "border", rgb, width))
+        return True
+
+
+def test_race_windows_get_player_colour_borders(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [
+        {"events": [{"at": 1.5, "address": 0x10, "bytes": [5]}]}, {}]})
+    st.match_border = 10
+    backend = BorderPlacer()
+    players = [Participant("a", "A", pad_index=0, color=(255, 0, 0)),
+               Participant("b", "B", pad_index=1, color=(0, 0, 255))]
+    runner = MatchRunner(launcher, game, REACH, players, [], st, placer=backend)
+    backend.runner = runner
+    snap = run(runner)
+    assert snap["phase"] == "finished", snap
+    w1, w2 = (f"w{i.process.pid}" for i in runner.instances)
+    assert backend.placed[w1] == (1010, 30, 980, 730) and backend.placed[w2] == (2010, 30, 980, 730)
+    assert backend.placed["gauntlet"] == (1000, 770, 2000, 250)  # Gauntlet's strip has no border
+    borders = sorted(c for c in backend.calls if c[1] == "border")
+    assert borders == sorted([(w1, "border", (255, 0, 0), 10), (w2, "border", (0, 0, 255), 10)])
+
+
+def test_versus_stage_layout_places_the_shared_window(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {
+        "events": [{"at": 0.0, "address": 0x10, "bytes": [3]}, {"at": 0.0, "address": 0x11, "bytes": [3]},
+                   {"at": 1.2, "address": 0x11, "bytes": [0]}]}, n=1)
+    st.stage_hud_percent = 30
+    ch = {"id": "ko", "name": "KO", "mode": "versus", "min_time": 0, "time_limit": 30,
+          "metric": {"address": {"1": "0x10", "2": "0x11"}}, "win": {"type": "eliminate", "value": 0}}
+    backend = BorderPlacer()  # one window shared by both players: no player colour
+    players = [Participant("a", "A", 1, 0, color=(255, 0, 0)), Participant("b", "B", 2, 1, color=(0, 0, 255))]
+    runner = MatchRunner(launcher, game, ch, players, [], st, placer=backend)
+    backend.runner = runner
+    snap = run(runner)
+    assert snap["phase"] == "finished" and runner.verdict.winners == ["a"], snap
+    pid = runner.process.pid
+    assert backend.placed == {f"w{pid}": (1000, 20, 2000, 700), "gauntlet": (1000, 720, 2000, 300)}
+    cfg = read_cfg(os.path.join(st.sub_state("retroarch"), "match.cfg"))
+    assert cfg["video_fullscreen"] == "false" and cfg["video_windowed_position_y"] == "20"
+    assert backend.calls[-1] == ("gauntlet", "restore", False)
+    assert not [c for c in backend.calls if c[1] == "border"]
 
 
 def test_race_window_closed_counts_as_quit(tmp_path, monkeypatch):
@@ -289,6 +387,39 @@ def test_race_start_state_in_every_window(tmp_path, monkeypatch):
         assert "ENTRY_STATE game.state1 ok" in log.read_text()
     for folder in ("p1", "p2"):
         assert os.path.isfile(os.path.join(st.sub_state("states", folder), "game.state1"))
+        assert read_cfg(os.path.join(st.sub_state("retroarch"), f"race_{folder}.cfg"))["state_slot"] == "1"
+
+
+def test_race_windows_share_one_of_several_start_states(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [{}, {}]})
+    os.makedirs(st.start_states_dir)
+    names = [f"s{i}.state" for i in range(6)]
+    for i, n in enumerate(names):
+        with open(os.path.join(st.start_states_dir, n), "w") as f:
+            json.dump([{"address": 0x10, "bytes": [5]}, {"address": 0x20, "bytes": [i]}], f)
+    runner = MatchRunner(launcher, game, dict(REACH, start_state=names), [pad("a", 0), pad("b", 1)], [], st)
+    snap = run(runner)
+    assert snap["phase"] == "finished"
+    staged = []
+    for folder in ("p1", "p2"):
+        with open(os.path.join(st.sub_state("states", folder), "game.state1")) as f:
+            staged.append(f.read())
+    assert staged[0] == staged[1]                  # every window starts from the same pick
+
+
+def test_countdown_rewinds_every_window_to_the_start_state(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [{}, {}]})
+    st.start_countdown = 1
+    os.makedirs(st.start_states_dir)
+    with open(os.path.join(st.start_states_dir, "s.state"), "w") as f:
+        json.dump([{"address": 0x10, "bytes": [5]}], f)
+    runner = MatchRunner(launcher, game, dict(REACH, start_state="s.state"), [pad("a", 0), pad("b", 1)], [], st)
+    snap = run(runner)
+    assert snap["phase"] == "finished" and runner.verdict.draw
+    for log in logs:
+        lines = [x for x in log.read_text().splitlines() if x.split()[0] in ("PAUSE_TOGGLE", "LOAD_STATE", "ENTRY_STATE")]
+        assert lines[:4] == ["ENTRY_STATE game.state1 ok", "PAUSE_TOGGLE", "LOAD_STATE",
+                             "ENTRY_STATE game.state1 ok"], lines
 
 
 def start_playing(runner):

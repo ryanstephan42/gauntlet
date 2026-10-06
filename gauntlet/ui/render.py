@@ -1,4 +1,5 @@
 """Painter: resolution-independent drawing in a 1280x720 design space with hit regions."""
+import contextlib
 import hashlib
 import os
 
@@ -86,6 +87,17 @@ class Painter:
         self.layout = Layout(w, h)
         self._fonts.clear()
         self._images.clear()
+
+    @contextlib.contextmanager
+    def design(self, design_w, design_h):
+        """Temporarily lay out in a different design space (e.g. a wide scoreboard strip)."""
+        old = self.layout
+        w, h = self.surface.get_size()
+        self.layout = Layout(w, h, design_w, design_h)
+        try:
+            yield self.layout
+        finally:
+            self.layout = old
 
     @property
     def margin(self):

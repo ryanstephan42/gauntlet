@@ -1,0 +1,140 @@
+{
+  "id": "ssb_n64_usa",
+  "title": "Super Smash Bros.",
+  "system": "n64",
+  "match": [
+    "super smash bros.",
+    "super smash bros"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + mupen64plus_next, Super Smash Bros. (USA). Screen $0A4AD0 (22 match, 24 results); time left $0A4D1C in frames (poked 180 -> results); player n at $0A4D28 + 0x74*n: +0x10 falls, +0x14 KOs (matched the results screen)",
+  "game": {
+    "meta": {
+      "name": "Super Smash Bros.",
+      "system": "n64",
+      "core": "mupen64plus_next",
+      "players": 1,
+      "description": "Mario against a CPU Pikachu on one of the eight stages."
+    },
+    "memory": {
+      "layout": "swap32",
+      "endian": "big"
+    },
+    "challenges": [
+      {
+        "id": "two_minute_brawl",
+        "name": "Two-Minute Brawl",
+        "mode": "turns",
+        "description": "A 2-minute time match vs Pikachu on a random stage: best KOs minus falls wins.",
+        "metric": {
+          "address": "0x0A4D3C",
+          "size": 4,
+          "add": [
+            {
+              "address": "0x0A4D38",
+              "size": 4,
+              "scale": -1
+            }
+          ]
+        },
+        "win": {
+          "type": "compare",
+          "order": "high"
+        },
+        "time_limit": 125,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0A4AD0",
+          "size": 1,
+          "op": "eq",
+          "value": 22
+        },
+        "setup": [
+          {
+            "type": "memory_write",
+            "address": "0x0A4D1C",
+            "size": 4,
+            "op": "set",
+            "value": 7200,
+            "delay": 0.5,
+            "when": {
+              "address": "0x0A4AD0",
+              "size": 1,
+              "op": "eq",
+              "value": 22
+            }
+          }
+        ],
+        "start_state": [
+          "ssb_vs_mario_v_pika_time.state",
+          "ssb_kongojungle_time.state",
+          "ssb_hyrulecastle_time.state",
+          "ssb_planetzebes_time.state",
+          "ssb_yoshisisland_time.state",
+          "ssb_dreamland_time.state",
+          "ssb_sectorz_time.state",
+          "ssb_saffroncity_time.state"
+        ]
+      },
+      {
+        "id": "plus_three",
+        "name": "Plus Three",
+        "mode": "turns",
+        "description": "First to be 3 KOs ahead of Pikachu on a random stage: fastest wins.",
+        "metric": {
+          "address": "0x0A4D3C",
+          "size": 4,
+          "add": [
+            {
+              "address": "0x0A4D38",
+              "size": 4,
+              "scale": -1
+            }
+          ]
+        },
+        "win": {
+          "type": "reach",
+          "value": 3
+        },
+        "time_limit": 300,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0A4AD0",
+          "size": 1,
+          "op": "eq",
+          "value": 22
+        },
+        "setup": [
+          {
+            "type": "memory_write",
+            "address": "0x0A4D1C",
+            "size": 4,
+            "op": "set",
+            "value": 18000,
+            "delay": 0.5,
+            "when": {
+              "address": "0x0A4AD0",
+              "size": 1,
+              "op": "eq",
+              "value": 22
+            }
+          }
+        ],
+        "start_state": [
+          "ssb_vs_mario_v_pika_time.state",
+          "ssb_kongojungle_time.state",
+          "ssb_hyrulecastle_time.state",
+          "ssb_planetzebes_time.state",
+          "ssb_yoshisisland_time.state",
+          "ssb_dreamland_time.state",
+          "ssb_sectorz_time.state",
+          "ssb_saffroncity_time.state"
+        ]
+      }
+    ],
+    "shop": []
+  }
+}

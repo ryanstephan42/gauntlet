@@ -4,9 +4,13 @@ Schema v2:
   meta:       name, system, core (name or path), rom (filename or path), image, players, description
   memory:     layout (linear|swap16|swap32), endian (little|big)   [defaults from system]
   challenges: [{id, name, description, mode (versus|turns|coop|manual), metric{var},
-                win{type, value, order}, time_limit, on_timeout, best_of, min_time, ready{cond}, setup[actions], start_state}]
+                win{type, value, order}, time_limit, on_timeout, best_of, min_time, ready{cond}, setup[actions], start_state (name or [names], one picked per match)}]
   shop:       [{id, name, cost, description, category, target, limit, actions[...]}]
 A "var" is {address (hex str or {"1": hex, "2": hex}), stride, size, signed, endian, mask, bit}.
+A metric may also have add: [{var..., scale}]; its value is then its own value + sum(scale * term).
+The metric and each add term may have count/step: the sum of `count` values `step` bytes apart (e.g. one
+counter per level), and pointer {address, size=4, mask}: the address is then an offset from the (masked)
+value stored at pointer.address, for objects that move between levels.
 """
 import copy
 import re
@@ -142,6 +146,25 @@ def _check_var(var, where, errors, per_player_ok=True):
         errors.append(f"{where}: bit must be 0-63")
 
 
+def _check_count(var, where, errors):
+    if not isinstance(var, dict):
+        return
+    if "pointer" in var:
+        ptr = var["pointer"]
+        if not isinstance(ptr, dict):
+            errors.append(f"{where}: pointer must be an object like {{\"address\": \"0x1F05C0\", \"mask\": "
+                          "\"0xFFFFFF\"}")
+        else:
+            _check_var(ptr, f"{where}.pointer", errors, per_player_ok=False)
+            _check_count({k: v for k, v in ptr.items() if k == "pointer"}, f"{where}.pointer", errors)
+    if "count" in var and (not _is_int(var["count"]) or not 1 <= var["count"] <= 256):
+        errors.append(f"{where}: count must be 1-256")
+    if "step" in var:
+        _check_hex(var["step"], where, errors, "step")
+        if "count" not in var:
+            errors.append(f"{where}: step needs count")
+
+
 def _check_condition(cond, where, errors):
     _check_var(cond, where, errors)
     if not isinstance(cond, dict):
@@ -212,12 +235,25 @@ def _validate_challenge(ch, where, errors):
     if not _is_num(ch.get("min_time")) or ch["min_time"] < 0:
         errors.append(f"{where}: min_time must be >= 0")
     st = ch.get("start_state")
-    if st is not None and not (isinstance(st, str) and st and "/" not in st and "\\" not in st
-                               and st not in (".", "..")):
-        errors.append(f"{where}: start_state must be a plain file name (e.g. mk2_versus.state)")
+    names = st if isinstance(st, list) else [st]
+    if st is not None and (not names or not all(isinstance(n, str) and n and "/" not in n and "\\" not in n
+                                                and n not in (".", "..") for n in names)):
+        errors.append(f"{where}: start_state must be a plain file name (e.g. mk2_versus.state) "
+                      "or a list of them (one is picked per match)")
     if mode == "manual":
         return
     _check_var(ch.get("metric"), f"{where}.metric", errors)
+    _check_count(ch.get("metric"), f"{where}.metric", errors)
+    terms = (ch.get("metric") or {}).get("add") if isinstance(ch.get("metric"), dict) else None
+    if terms is not None:
+        if not isinstance(terms, list) or not terms:
+            errors.append(f"{where}.metric.add must be a non-empty list")
+        else:
+            for i, term in enumerate(terms):
+                _check_var(term, f"{where}.metric.add[{i}]", errors)
+                _check_count(term, f"{where}.metric.add[{i}]", errors)
+                if isinstance(term, dict) and not _is_int(term.get("scale", 1)):
+                    errors.append(f"{where}.metric.add[{i}]: scale must be an integer")
     win = ch.get("win")
     if not isinstance(win, dict) or win.get("type") not in WIN_TYPES:
         errors.append(f"{where}: win.type must be one of {sorted(WIN_TYPES)}")

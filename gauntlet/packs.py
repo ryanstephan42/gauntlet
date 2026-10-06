@@ -5,6 +5,7 @@ import zipfile
 
 from .games import strip_private, unique_filename
 from .schema import normalize_game, validate_game
+from .startstate import state_names
 
 
 def _referenced_configs(game):
@@ -17,7 +18,7 @@ def _referenced_configs(game):
 
 
 def _start_states(game):
-    return {ch["start_state"] for ch in game.get("challenges", []) if ch.get("start_state")}
+    return {n for ch in game.get("challenges", []) for n in state_names(ch)}
 
 
 def export_pack(games, out_path, assets_dir, config_dir, states_dirs=()):

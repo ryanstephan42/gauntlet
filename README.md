@@ -68,6 +68,22 @@ Notes on races:
     the cursor may jump.
 - **Turning races off.** Set `simultaneous_play` to `false` to always take turns.
 
+### Match layout: games on top, live scoreboard below (Hyprland / Sway)
+On Hyprland or Sway, every match (versus, turns, races) is arranged as one screen:
+- The game windows fill the top of the monitor: one wide window for versus/turns, side by side
+  for a race.
+- Gauntlet's own window becomes a strip along the bottom (`stage_hud_percent`, 25% by default).
+  - Each player has a panel with their live metric (e.g. MK2 health) as a number and a bar.
+  - The panel also lists the power-ups that affect that player: buffs in green, debuffs in red.
+  - The middle shows the challenge, the clock and its description.
+- On Hyprland each player's game window gets a border in their colour (`match_border` px, 0 = off).
+- Every match (each turn, and all race windows together) starts with a countdown: each RetroArch is paused as soon as it answers, rewound to the challenge's start state so every window sits on the same frame, and released together on GO. The 3-2-1 shows big in the strip, or as a RetroArch message when there is no strip. The referee clock starts at GO (`start_countdown` seconds, 0 = off).
+  A versus window shared by both players has no player border.
+- When the match ends, Gauntlet's window goes back to how it was (tiled, floating or fullscreen).
+- Turn it off with `stage_layout: false` ("Match layout" in Settings) to get the old behaviour:
+  a fullscreen RetroArch for versus/turns, and tiles across the whole screen for races.
+- Needs `race_place_windows`. Other desktops always use the old behaviour.
+
 ## Settings
 Edit them in **Settings** in the app, or in `settings.json` (or the file given with `--settings`).
 Missing keys use defaults; invalid values are logged and ignored.
@@ -78,8 +94,9 @@ Missing keys use defaults; invalid values are logged and ignored.
 | Folders | `data_dir` (game configs), `rom_dir`, `core_dir` (empty = auto), `config_dir`, `assets_dir`, `start_states_dir`, `state_dir` |
 | Economy | `player_count`, `starting_points`, `win_points`, `loss_points`, `draw_points`, `catchup_step`, `catchup_max`, `streak_bonus`, `streak_max`, `max_items`, `wagers` |
 | Display/input | `fullscreen`, `width`, `height`, `tv_mode`, `sound`, `volume`, `split_keyboard`, `key_bindings`, `button_bindings` (Settings → Remap menu controls) |
-| Matches | `boot_timeout`, `poll_interval`, `close_delay`, `assign_ports` |
-| Races | `simultaneous_play`, `race_input_driver` (`""` = auto: `udev` when readable), `race_mute_others`, `race_place_windows` |
+| Matches | `boot_timeout`, `poll_interval`, `close_delay`, `assign_ports`, `game_vsync` (default off: two vsynced windows halve each other's speed on Wayland; audio sync keeps the pace) |
+| Races | `simultaneous_play`, `race_input_driver` (`""` = auto: `udev` when readable), `race_mute_others`, `race_place_windows` (float match windows into place) |
+| Match layout | `stage_layout` (games on top, scoreboard strip below; Hyprland/Sway), `stage_hud_percent` (strip height, 10–50), `match_border` (player-colour window border px, Hyprland), `start_countdown` (seconds of 3-2-1 over the paused first frame, 0–10, 0 = off) |
 
 Tip: `retroarch_overrides` is the escape hatch for RetroArch quirks on your machine. For example,
 if a device that isn't a gamepad shows up as joystick 0 and steals player 1's port, try
@@ -95,8 +112,26 @@ automatically). You don't need to write them by hand:
 - **Manage Games** edits, duplicates, deletes, imports and exports configs as zip packs, and
   validates them.
 
-Bundled games: Super Mario 64, Mortal Kombat II, Super Bomberman and Super Mario Kart. Their
-addresses were verified live on RetroDECK.
+Bundled games (addresses verified live on RetroDECK; see `docs/ram-research.md`):
+- NES: Mike Tyson's Punch-Out!!
+- SNES: Super Mario World, Super Mario Kart, Super Metroid, Star Fox, Kirby's Dream Course,
+  Mortal Kombat II, Super Bomberman
+- N64: Super Mario 64, Mario Kart 64, Super Smash Bros., GoldenEye 007, Banjo-Kazooie,
+  Donkey Kong 64, Diddy Kong Racing, Mario Party 3, Pokémon Stadium 2
+- PlayStation: Crash Bandicoot, Spyro the Dragon, Tekken 3
+- GBA: Metroid Fusion
+
+Most of the newer challenges start from a save state (`start_state`). Those states contain game
+data, so they aren't in the repository. Put them in `start_states/`; files there named `*.state*`
+are ignored by git. If a state is missing, the game boots normally and Gauntlet logs a warning.
+Challenges that only make sense from their state (most level races) need it.
+
+Level-based challenges list several states and play a random one each match: Banjo-Kazooie and
+Donkey Kong 64 (5 worlds, everything unlocked), Super Mario 64 (castle floors with 120 stars, plus
+Bowser 3), Spyro (5 levels), Crash (6 stages), Super Mario World (7 levels), Mario Kart 64
+(7 courses), Super Mario Kart (8 tracks), Diddy Kong Racing (7 tracks), Smash (8 stages),
+GoldenEye (11 maps) and Star Fox (Corneria on all 3 routes). Pokémon Stadium 2's Battle Now
+starts before the rental teams are drawn, so teams are random every match.
 
 Outline of a game config:
 - `meta`: `name`, `system`, `core`, `rom` (required); `image`, `players`, `description`.
@@ -110,7 +145,10 @@ Outline of a game config:
   - `ready` (a condition to wait for before the clock starts)
   - `setup[]` (actions)
   - `start_state`: a RetroArch save state, looked up in `start_states_dir` first and then in the
-    bundled `start_states/`. Capture one from the challenge editor.
+    bundled `start_states/`. Capture one from the challenge editor. It can also be a list of
+    names (for example one state per level): each match picks one of the states that exist, at
+    random, and every player and race window gets that same state. In the editor, "Capture from
+    the game (add another)" and "Add another .state file" add to the list.
 - `shop[]`, each item with:
   - `id`, `name`, `cost`, `category` (`buff`, `debuff` or `chaos`)
   - `target` (`self`, `opponent`, `others` or `all`), `limit`
@@ -121,6 +159,14 @@ Outline of a game config:
     - `message`
 - A `var` is `{address, size, signed, endian, mask, bit, stride}`.
   - `address` is a hex string, or a per-player map such as `{"1": "0x2EFC", "2": "0x30AA"}`.
+- A metric can combine values with `add`: a list of vars, each with an optional integer `scale`
+  (default 1). The metric is its own value plus `scale × value` for each term. For example, a team's
+  HP total, or kills minus suicides with `"scale": -1`.
+- A var can also sum a block of values with `count` and `step` (e.g. one counter per level:
+  `"count": 7, "step": "0x2"`), and can be read through a pointer with
+  `"pointer": {"address": "0x11B46C", "mask": "0xFFFFFF"}`: `address` is then an offset from the
+  masked value stored at the pointer. Pointers can be chained (Diddy Kong Racing reads P1's racer
+  this way).
 
 ## Development
 ```
@@ -131,3 +177,8 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy .venv/bin/python -m pytest -q
 The tests drive the whole UI headlessly against `gauntlet.fakera`, a fake RetroArch that answers
 network commands and can run as several instances for races. CI runs lint and tests on Python
 3.11–3.13 and builds PyInstaller packages for Linux and Windows.
+
+`prototypes/inwindow/` is an experiment, not part of the app: a ctypes libretro frontend that runs
+two cores inside one pygame window with the live scoreboard (`demo.py bench`, `demo.py core CORE ROM`,
+`demo.py play --auto --fullscreen --scaled`). The measurements and the N64 limitation are in
+`plan.md`, Phase 7.4.

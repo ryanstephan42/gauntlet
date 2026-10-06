@@ -10,7 +10,7 @@ from gauntlet.actions import Effect, EffectContext, EffectScheduler, collect_con
 from gauntlet.detect import Install, find_core, find_rom, list_cores
 from gauntlet.fakera import FakeRetroArch
 from gauntlet.match import MatchRunner, Participant, Purchase, build_config, plan_effects
-from gauntlet.memory import Memory, Var, compare, host_address, parse_int, var_for
+from gauntlet.memory import Memory, Var, compare, host_address, parse_int, read_metric, var_for
 from gauntlet.referee import Referee, TurnReferee, TurnResult, forfeit_verdict, rank_turns
 from gauntlet.retroarch import Launcher, RetroArchClient, parse_status
 from gauntlet.schema import normalize_game, validate_game
@@ -91,6 +91,107 @@ def test_memory_roundtrip_swap32(client, fake):
     assert fake.ram[0x103] == 0x12 and fake.ram[0x102] == 0x34
     assert mem.read(var) == 0x1234
 
+
+def test_read_metric_adds_scaled_terms(client, fake):
+    mem = Memory(client)
+    fake.poke(0x10, [3, 4, 5, 1, 9])
+    team = {"address": "0x10", "add": [{"address": "0x11"}, {"address": "0x12"}]}
+    assert read_metric(mem, team) == 12
+    score = {"address": {"1": "0x10", "2": "0x11"}, "add": [{"address": {"1": "0x13", "2": "0x14"}, "scale": -1}]}
+    assert read_metric(mem, score, 1) == 2 and read_metric(mem, score, 2) == -5
+    assert read_metric(mem, {"address": "0x10"}) == 3
+    assert read_metric(mem, {"address": "0x10", "add": [{"address": "0x90000"}]}) is None
+
+
+def test_metric_add_validation():
+    def game(metric):
+        return {"schema_version": 2, "meta": {"name": "T", "core": "c", "rom": "r", "players": 2},
+                "challenges": [{"id": "a", "name": "A", "mode": "versus", "metric": metric,
+                                "win": {"type": "reach", "value": 1}}]}
+    assert validate_game(game({"address": "0x10", "add": [{"address": "0x11", "scale": -1}]})) == []
+    assert any("add must be" in e for e in validate_game(game({"address": "0x10", "add": []})))
+    assert any("scale" in e for e in validate_game(game({"address": "0x10", "add": [{"address": "0x11",
+                                                                                     "scale": "x"}]})))
+    assert any("address" in e for e in validate_game(game({"address": "0x10", "add": [{"size": 1}]})))
+    assert validate_game(game({"address": "0x10", "count": 3, "step": "0x2", "add": [{"address": "0x20",
+                                                                                     "count": 2}]})) == []
+    assert any("count" in e for e in validate_game(game({"address": "0x10", "count": 0})))
+    assert any("step needs count" in e for e in validate_game(game({"address": "0x10", "step": "0x2"})))
+
+
+def test_read_metric_count_step_sums_counters(client, fake):
+    mem = Memory(client, "swap32")
+    for i, v in enumerate([1, 2, 3, 4]):
+        Memory(client, "swap32").write(Var(0x40 + 0x10 * i + 2, 2, "big"), v)
+    assert read_metric(mem, {"address": "0x42", "size": 2, "endian": "big", "count": 4, "step": "0x10"}) == 10
+    spec = {"address": "0x42", "size": 2, "endian": "big", "count": 2, "step": "0x10",
+            "add": [{"address": "0x62", "size": 2, "endian": "big", "count": 2, "step": "0x10", "scale": 10}]}
+    assert read_metric(mem, spec) == 3 + 70
+
+
+def test_read_metric_count_step_reads_distant_counters_individually():
+    class ReadClient:
+        def __init__(self):
+            self.reads = []
+
+        def read_bytes(self, address, size):
+            self.reads.append((address, size))
+            return bytes([address & 0xFF]) * size
+
+    client = ReadClient()
+    mem = Memory(client)
+    spec = {"address": "0x10", "size": 1, "count": 2, "step": "0x10000000"}
+
+    assert read_metric(mem, spec) == 0x20
+    assert client.reads == [(0x10, 1), (0x10000010, 1)]
+
+
+def test_read_metric_contiguous_and_overlapping_counters_use_one_block():
+    class ReadClient:
+        def __init__(self):
+            self.reads = []
+
+        def read_bytes(self, address, size):
+            self.reads.append((address, size))
+            return bytes([1]) * size
+
+    client = ReadClient()
+    mem = Memory(client)
+
+    assert read_metric(mem, {"address": "0x10", "size": 2, "count": 2}) == 514
+    assert read_metric(mem, {"address": "0x20", "size": 2, "count": 2, "step": 1}) == 514
+    assert client.reads == [(0x10, 4), (0x20, 3)]
+
+
+def test_read_metric_follows_pointer(client, fake):
+    mem = Memory(client, "swap32")
+    ptr = {"address": "0x100", "mask": "0xFFFFFF"}
+    spec = {"address": "0x47", "size": 1, "pointer": ptr, "add": [{"address": "0x70", "pointer": ptr, "scale": -16}]}
+    defaults = {"endian": "big"}
+    assert read_metric(mem, spec, 1, defaults) is None  # null pointer: object not loaded yet
+    mem.write(Var(0x100, 4, "big"), 0x80000200)
+    mem.write(Var(0x247, 1), 3)
+    mem.write(Var(0x270, 1), 1)
+    assert read_metric(mem, spec, 1, defaults) == 3 - 16
+    mem.write(Var(0x100, 4, "big"), 0x80000400)
+    mem.write(Var(0x447, 1), 5)
+    assert read_metric(mem, spec, 1, defaults) == 5
+    chained = {"address": "0x47", "pointer": {"address": "0x0", "mask": "0xFFFFFF",
+                                              "pointer": {"address": "0x500", "mask": "0xFFFFFF"}}}
+    assert read_metric(mem, chained, 1, defaults) is None
+    mem.write(Var(0x500, 4, "big"), 0x80000100)
+    assert read_metric(mem, chained, 1, defaults) == 5
+
+def test_metric_pointer_validation():
+    def game(metric):
+        return {"schema_version": 2, "meta": {"name": "T", "core": "c", "rom": "r", "players": 1},
+                "challenges": [{"id": "a", "name": "A", "mode": "turns", "metric": metric,
+                                "win": {"type": "reach", "value": 1}}]}
+    assert validate_game(game({"address": "0x47", "pointer": {"address": "0x100", "mask": "0xFFFFFF"}})) == []
+    assert any("pointer must be" in e for e in validate_game(game({"address": "0x47", "pointer": "0x100"})))
+    assert any("pointer" in e for e in validate_game(game({"address": "0x47", "pointer": {"size": 4}})))
+    assert any("pointer.pointer" in e for e in validate_game(game({"address": "0x47", "pointer": {
+        "address": "0x0", "pointer": {"address": "zz"}}})))
 
 # ----------------------------------------------------------------------------- client
 def test_client_status_and_chunked_read(client, fake):
@@ -378,10 +479,43 @@ def test_start_state_lookup_and_staging(tmp_path, monkeypatch):
     assert startstate.newest_state(str(folder)).endswith("x.state2")
     startstate.clear_folder(str(folder))
     assert startstate.newest_state(str(folder)) is None
-    for bad in ("a/b.state", "..", ""):
+    for bad in ("a/b.state", "..", "", [], ["ok.state", "../x.state"], ["ok.state", 3]):
         g = normalize_game({"schema_version": 2, "meta": {"name": "T", "core": "c", "rom": "r"},
                             "challenges": [{"id": "m", "name": "M", "mode": "manual", "start_state": bad}]})
         assert any("start_state" in e for e in validate_game(g)), bad
+
+
+def test_several_start_states_one_picked_per_match(tmp_path):
+    import random
+    from gauntlet import startstate
+    user = tmp_path / "user"
+    user.mkdir()
+    for n in ("l1.state", "l2.state", "l3.state"):
+        (user / n).write_bytes(n.encode())
+    st = Settings(state_dir=str(tmp_path / "state"), start_states_dir=str(user))
+    ch = {"start_state": ["l1.state", "l2.state", "gone.state", "l3.state"]}
+    assert startstate.state_names(ch) == ["l1.state", "l2.state", "gone.state", "l3.state"]
+    picks = {startstate.find_start_state(st, ch, random.Random(i))[1] for i in range(60)}
+    assert picks == {"l1.state", "l2.state", "l3.state"}           # missing files are never picked
+    assert startstate.find_start_state(st, {"start_state": ["gone.state", "l2.state"]}) == (
+        str(user / "l2.state"), "l2.state")
+    assert startstate.find_start_state(st, {"start_state": ["gone.state"]}) == (None, "gone.state")
+    # stored as a plain string for one state (older format), a list for more, removed when empty
+    c = {}
+    startstate.set_state_names(c, ["a.state"])
+    assert c == {"start_state": "a.state"}
+    startstate.set_state_names(c, ["a.state", "b.state", "a.state", "../x"])
+    assert c == {"start_state": ["a.state", "b.state"]}
+    startstate.set_state_names(c, [])
+    assert c == {}
+    game = {"meta": {"name": "Super Mario 64"}}
+    assert startstate.next_state_name(game, {"id": "star"}) == "super_mario_64_star.state"
+    assert startstate.next_state_name(game, {"id": "star"}, ["super_mario_64_star.state"]) == (
+        "super_mario_64_star_2.state")
+    g = normalize_game({"schema_version": 2, "meta": {"name": "T", "core": "c", "rom": "r"},
+                        "challenges": [{"id": "m", "name": "M", "mode": "manual",
+                                        "start_state": ["a.state", "b.state"]}]})
+    assert validate_game(g) == []
 
 
 def test_launcher_entry_slot_and_flat_states(tmp_path):
@@ -406,7 +540,7 @@ def _e2e_setup(tmp_path, monkeypatch, script):
     monkeypatch.setenv("GAUNTLET_FAKE_LOG", str(tmp_path / "fake.log"))
     monkeypatch.setenv("PYTHONPATH", REPO)
     st = Settings(state_dir=str(tmp_path / "state"), core_dir=str(cores), retroarch_port=free_port(),
-                  poll_interval=0.05, close_delay=0.1, boot_timeout=10)
+                  poll_interval=0.05, close_delay=0.1, boot_timeout=10, start_countdown=0)
     launcher = Launcher(st, installs=[Install("Fake", [sys.executable, "-m", "gauntlet.fakera"])])
     game = normalize_game({"schema_version": 2,
                            "meta": {"name": "Fake", "system": "snes", "core": "fake", "rom": str(rom)},
@@ -438,6 +572,51 @@ def test_match_runner_versus_e2e(tmp_path, monkeypatch):
     assert "WRITE_CORE_MEMORY 20 2A" in log
     assert "Bob wins!" in log
     assert "QUIT" in log
+    assert runner.process.poll() is not None
+
+
+def test_countdown_holds_the_first_frame_then_starts_the_clock(tmp_path, monkeypatch):
+    script = {"ram_size": 0x1000, "boot_delay": 0.2, "events": [{"at": 2.0, "address": 0x11, "bytes": [3]}]}
+    st, launcher, game = _e2e_setup(tmp_path, monkeypatch, script)
+    st.start_countdown = 2
+    ch = {"id": "c", "name": "C", "mode": "versus", "min_time": 0, "on_timeout": "compare",
+          "metric": {"address": {"1": "0x10", "2": "0x11"}}, "win": {"type": "reach", "value": 3}}
+    runner = MatchRunner(launcher, game, ch, [Participant("a", "Ann", 1), Participant("b", "Bob", 2)], [], st)
+    runner.start()
+    phases = set()
+    deadline = time.monotonic() + 20
+    while not runner.finished and time.monotonic() < deadline:
+        snap = runner.snapshot()
+        if snap["phase"] == "countdown":
+            phases.add(snap["countdown"])
+        time.sleep(0.05)
+    snap = _wait(runner)
+    assert snap["phase"] == "finished" and runner.verdict.winners == ["b"]
+    assert phases == {1, 2}
+    assert snap["go_at"] is not None
+    # The fake's game clock was frozen during the 2 s countdown, so the score landed well after GO
+    assert snap["elapsed"] >= 1.0, snap["elapsed"]
+    cmds = [line for line in (tmp_path / "fake.log").read_text().splitlines()
+            if line.startswith(("PAUSE_TOGGLE", "SHOW_MSG", "FRAMEADVANCE"))]
+    assert cmds[:7] == ["PAUSE_TOGGLE", "SHOW_MSG 2", "FRAMEADVANCE", "SHOW_MSG 1", "FRAMEADVANCE",
+                        "PAUSE_TOGGLE", "SHOW_MSG GO!"], cmds
+
+
+def test_cancel_during_countdown(tmp_path, monkeypatch):
+    st, launcher, game = _e2e_setup(tmp_path, monkeypatch, {"ram_size": 0x1000, "boot_delay": 0.1})
+    st.start_countdown = 10
+    ch = {"id": "c", "name": "C", "mode": "versus", "min_time": 0, "on_timeout": "compare",
+          "metric": {"address": {"1": "0x10", "2": "0x11"}}, "win": {"type": "reach", "value": 3}}
+    runner = MatchRunner(launcher, game, ch, [Participant("a", "Ann", 1), Participant("b", "Bob", 2)], [], st)
+    runner.start()
+    deadline = time.monotonic() + 15
+    while runner.snapshot()["phase"] != "countdown" and time.monotonic() < deadline:
+        time.sleep(0.05)
+    t0 = time.monotonic()
+    runner.cancel()
+    snap = _wait(runner)
+    assert time.monotonic() - t0 < 5
+    assert snap["phase"] == "cancelled" and runner.verdict is None
     assert runner.process.poll() is not None
 
 

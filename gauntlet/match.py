@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass, field
 
 from .actions import Effect, EffectContext, EffectScheduler, collect_config
-from .memory import Memory, compare, is_per_player, var_for
+from .memory import Memory, compare, is_per_player, read_metric, var_for
 from .referee import RaceReferee, Referee, TurnReferee, Verdict, forfeit_verdict, rank_turns
 from . import startstate, winplace
 
@@ -43,6 +43,7 @@ class Participant:
     port: int = 1          # RetroArch port (1-based) in versus/coop
     pad_index: int = None  # joystick device index, if any
     keyboard: str = None   # "keyboard" / "keyboard2" / None
+    color: tuple = None    # player colour (rgb), e.g. for window borders
 
 
 @dataclass
@@ -100,6 +101,9 @@ def build_config(participants, purchases, settings, turn_player=None):
     extra = collect_config([a for pu in purchases for a in pu.item.get("actions", [])],
                            settings.config_path)
     extra["input_max_users"] = max(1, len(participants)) if turn_player is None else 1
+    extra["video_vsync"] = bool(settings.game_vsync)
+    if not settings.game_vsync:
+        extra["audio_sync"] = True  # with vsync off, audio is what keeps the game at full (not double) speed
     if settings.assign_ports:
         for p in participants:
             if turn_player is not None and p.key != turn_player:
@@ -163,6 +167,25 @@ def tile_rects(n, width, height, x=0, y=0):
     return [(x + (i % cols) * w, y + (i // cols) * h, w, h) for i in range(n)]
 
 
+def stage_rects(n, area, hud_percent=25):
+    """Stage layout: `n` game windows tiled across the top of `area`, Gauntlet's scoreboard strip below.
+    -> ([game rects], scoreboard rect)"""
+    x, y, w, h = area
+    hud_h = max(1, round(h * hud_percent / 100))
+    return tile_rects(n, w, h - hud_h, x, y), (x, y + h - hud_h, w, hud_h)
+
+
+def window_config(rect):
+    """retroarch.cfg overrides for a windowed RetroArch at `rect` (honoured by X11/most desktops)."""
+    extra = {"video_fullscreen": False, "video_windowed_fullscreen": False}
+    if rect:
+        x, y, w, h = rect
+        extra.update({"video_window_save_positions": True, "video_windowed_position_x": x,
+                      "video_windowed_position_y": y, "video_windowed_position_width": w,
+                      "video_windowed_position_height": h})
+    return extra
+
+
 def race_config(participants, purchases, settings, index, rect=None, input_driver=None):
     """retroarch.cfg overrides for player `index`'s own window in a race."""
     p = participants[index]
@@ -178,12 +201,7 @@ def race_config(participants, purchases, settings, index, rect=None, input_drive
         extra["input_player1_joypad_index"] = NO_PAD
     elif p.pad_index is not None:
         extra["input_player1_joypad_index"] = p.pad_index
-    extra.update({"video_fullscreen": False, "video_windowed_fullscreen": False})
-    if rect:
-        x, y, w, h = rect
-        extra.update({"video_window_save_positions": True, "video_windowed_position_x": x,
-                      "video_windowed_position_y": y, "video_windowed_position_width": w,
-                      "video_windowed_position_height": h})
+    extra.update(window_config(rect))
     if index and settings.race_mute_others:
         extra["audio_mute_enable"] = True
     if input_driver:
@@ -201,6 +219,7 @@ class Instance:
     memory: object = None
     ctx: object = None
     sched: object = None
+    slot: object = None
     alive: bool = True
 
 
@@ -208,11 +227,14 @@ class MatchRunner:
     def __init__(self, launcher, game, challenge, participants, purchases=(), settings=None, race=None,
                  screen=None, placer=None):
         """`race`: a RacePlan (None = decide with race_setup()); `screen`: (w, h) for tiling race windows;
-        `placer`: a winplace backend for race windows (None = detect; False = leave them to RetroArch)."""
+        `placer`: a winplace backend for match windows (None = detect; False = leave them to RetroArch).
+        With a backend and settings.stage_layout the games share the top of the screen and Gauntlet's
+        window becomes a live scoreboard strip below them (`stage`)."""
         self.launcher = launcher
         self.settings = settings or launcher.settings
         self.game = game
         self.challenge = challenge
+        self._start_pick = None  # (path, name) of this match's start state, chosen on first launch
         self.participants = list(participants)
         self.purchases = list(purchases)
         self.mode = challenge.get("mode", "manual")
@@ -221,8 +243,12 @@ class MatchRunner:
         self.race = race if race is not None else race_setup(self.participants, self.settings)
         self.screen = screen or (1920, 1080)
         self.instances = []
-        self._backend = placer
+        if placer is None:
+            placer = winplace.detect() if self.settings.race_place_windows else None
+        self._backend = placer or None
+        self.stage = bool(self._backend) and self.settings.stage_layout
         self._placer = None
+        self._rects = None
         self._lock = threading.Lock()
         self._cancel = threading.Event()
         self._end = threading.Event()
@@ -235,7 +261,8 @@ class MatchRunner:
         self.turn_results = []
         self._snap = {"phase": "idle", "message": "", "values": {}, "remaining": None,
                       "elapsed": 0.0, "turn": None, "warnings": [], "verdict": None,
-                      "race": self.race.race, "players": {}}
+                      "race": self.race.race, "players": {}, "stage": self.stage, "hud": None,
+                      "countdown": None, "go_at": None}
 
     # -- UI API -----------------------------------------------------------------
     def start(self):
@@ -282,18 +309,22 @@ class MatchRunner:
         log.warning(text)
 
     def _run_safe(self):
+        final = None
         try:
-            self._run()
+            final = self._run()
         except MatchError as e:
             self.error = str(e)
-            self._set(phase="error", message=str(e))
+            final = {"phase": "error", "message": str(e)}
             log.error("Match failed: %s", e)
         except Exception as e:  # keep the UI alive on unexpected failures
             log.exception("Match crashed")
             self.error = f"unexpected error: {e}"
-            self._set(phase="error", message=self.error)
+            final = {"phase": "error", "message": self.error}
         finally:
+            # windows are closed and Gauntlet's own window restored before the UI sees the end
             self._kill()
+            if final:
+                self._set(**final)
 
     def _run(self):
         core, rom, errors = self.launcher.resolve(self.game)
@@ -304,6 +335,7 @@ class MatchRunner:
             raise MatchError(f"another RetroArch is already answering on port "
                              f"{self.settings.retroarch_port}; close it first")
         keys = [p.key for p in self.participants]
+        self._rects = self._setup_windows(len(self.participants) if self.race.race else 1)
         if self.race.race:
             self.verdict = self._run_race(core, rom)
             self.turn_results = self._race_ref.results if self._race_ref else []
@@ -327,24 +359,30 @@ class MatchRunner:
             if self._forfeit is not None and (self.verdict is None or self.verdict.forfeit is None):
                 self.verdict = forfeit_verdict(keys, self._forfeit)
         if self._cancel.is_set():
-            self._set(phase="cancelled", message="Match cancelled")
-        elif self.verdict is None:
-            self._set(phase="no_verdict", message="Match ended without a result")
-        else:
-            self._set(phase="finished", message=self.verdict.reason, verdict=self.verdict.to_dict())
+            return {"phase": "cancelled", "message": "Match cancelled"}
+        if self.verdict is None:
+            return {"phase": "no_verdict", "message": "Match ended without a result"}
+        return {"phase": "finished", "message": self.verdict.reason, "verdict": self.verdict.to_dict()}
 
     def _play_once(self, core, rom, turn_player=None):
         tag = f"{self.game['meta']['name']}" + (f" - {turn_player.name}'s turn" if turn_player else "")
         self._set(phase="launching", message=f"Launching {tag}", turn=turn_player.key if turn_player else None,
-                  values={}, remaining=None, elapsed=0.0)
+                  values={}, remaining=None, elapsed=0.0, countdown=None, go_at=None)
         extra = build_config(self.participants, self.purchases, self.settings,
                              turn_player.key if turn_player else None)
-        cfg = self.launcher.write_config("match", extra)
+        if self._rects:
+            extra.update(window_config(self._rects[0]))
         slot = self._stage_start_state(rom)
+        if slot:
+            extra["state_slot"] = slot  # so LOAD_STATE can rewind to the start state
+        cfg = self.launcher.write_config("match", extra)
         try:
             self.process = self.launcher.launch(core, rom, cfg, entry_slot=slot)
         except OSError as e:
             raise MatchError(f"cannot launch RetroArch: {e}")
+        if self._placer and self._rects:
+            self._placer.add(self.process.pid, self._rects[0], border=self._border(turn_player))
+            self._placer.start(timeout=self.settings.boot_timeout + 60)
         self._set(phase="waiting", message="Waiting for RetroArch...")
         if not self.client.wait_until_ready(self.settings.boot_timeout, interval=0.3,
                                             process=self.process, cancel=self._cancel):
@@ -353,14 +391,26 @@ class MatchRunner:
             if self.process.poll() is not None:
                 raise MatchError("RetroArch exited during startup (see retroarch.log in the state folder)")
             raise MatchError("RetroArch did not respond; is network_cmd_enable allowed?")
+        counting = self.settings.start_countdown > 0
+        if counting:
+            self._hold(self.client, True, rewind=bool(slot))
+        if self._placer and self._rects:
+            self._placer.refresh()
         try:
+            if counting:
+                self._countdown([self.client])
             return self._referee_loop(turn_player)
         finally:
             self._close()
+            if self._placer:
+                self._placer.forget(self.process.pid)
 
     def _stage_start_state(self, rom, states_dir=None):
-        """Copy the challenge's start state into place (fresh for every launch/turn). -> slot or None."""
-        path, name = startstate.find_start_state(self.settings, self.challenge)
+        """Copy the challenge's start state into place (fresh for every launch/turn). -> slot or None.
+        With several states one is picked per match, so every turn and race window starts the same."""
+        if self._start_pick is None:
+            self._start_pick = startstate.find_start_state(self.settings, self.challenge)
+        path, name = self._start_pick
         if not name:
             return None
         if not path:
@@ -414,7 +464,7 @@ class MatchRunner:
                 for p in active:
                     port = 1 if turn_player else (1 if self.mode == "coop" and not is_per_player(metric) else p.port)
                     try:
-                        values[p.key] = memory.read(var_for(metric, port, defaults))
+                        values[p.key] = read_metric(memory, metric, port, defaults)
                     except KeyError:
                         values[p.key] = None
                 if all(v is None for v in values.values()):
@@ -442,6 +492,69 @@ class MatchRunner:
             return ref.stop(time.monotonic() - start, "forfeit" if self._forfeit else "closed early")
         return None
 
+    def _hold(self, client, paused, rewind=False):
+        """Pause or resume one RetroArch. PAUSE_TOGGLE only toggles, so check the status around it.
+
+        rewind reloads the start state once paused: each window ran for however long its boot was
+        noticed, and this puts every one back on the same frame."""
+        for _ in range(3):
+            st = client.status()
+            if st is None or not st.running:
+                return False
+            if (st.state == "PAUSED") == paused:
+                if rewind:
+                    client.command("LOAD_STATE")
+                return True
+            client.pause_toggle()
+            time.sleep(0.05)
+        log.warning("Could not %s RetroArch", "pause" if paused else "resume")
+        return False
+
+    def _countdown(self, clients):
+        """Show 3-2-1 over the paused first frame, then resume every game at the same moment.
+
+        A paused RetroArch draws nothing new, so each tick advances one frame: that paints the loaded
+        start state into the (freshly placed) window, plus the OSD number when Gauntlet's strip isn't
+        on screen to show it."""
+        for n in range(int(self.settings.start_countdown), 0, -1):
+            self._set(phase="countdown", countdown=n, message=f"Get ready... {n}")
+            for c in clients:
+                if not self.stage:
+                    c.show_msg(str(n))
+                c.frame_advance()
+            if self._cancel.wait(1.0) or self._end.is_set():
+                break
+        for c in clients:  # one toggle each first, back to back, so nobody starts early
+            c.pause_toggle()
+        self._set(countdown=0, go_at=time.monotonic())
+        for c in clients:
+            self._hold(c, False)
+            c.show_msg("GO!")
+
+    def _border(self, participant):
+        """(rgb, width) for a window that belongs to one player; None for a shared window."""
+        width = self.settings.match_border
+        if participant is None or not participant.color or width <= 0:
+            return None
+        return tuple(participant.color), width
+
+    def _setup_windows(self, n):
+        """Rectangles for `n` game windows (None = RetroArch decides). In the stage layout Gauntlet's own
+        window is floated into the scoreboard strip under them."""
+        if self._backend and self._placer is None:
+            self._placer = winplace.Placer(self._backend)
+        area = self._placer.area() if self._placer else None
+        if area and self.stage:
+            rects, hud = stage_rects(n, area, self.settings.stage_hud_percent)
+            self._placer.add(os.getpid(), hud, own=True)
+            self._placer.start(timeout=self.settings.boot_timeout + 60)
+            self._set(hud=hud)
+            return rects
+        if self.race.race:
+            return tile_rects(n, area[2], area[3], area[0], area[1]) if area else tile_rects(n, *self.screen)
+        # one window: float it over Gauntlet's monitor rather than fullscreen wherever focus happens to be
+        return [area] if area else None
+
     # -- race: one window per player ---------------------------------------------------
     _race_ref = None
 
@@ -455,26 +568,24 @@ class MatchRunner:
                 raise MatchError(f"another RetroArch is already answering on port {inst.port}; close it first")
         if self.race.note:
             self._warn(self.race.note)
-        backend = self._backend
-        if backend is None:
-            backend = winplace.detect() if self.settings.race_place_windows else None
-        placer = self._placer = winplace.Placer(backend) if backend else None
-        area = placer.area() if placer else None
-        rects = tile_rects(n, area[2], area[3], area[0], area[1]) if area else tile_rects(n, *self.screen)
+        placer = self._placer
+        rects = self._rects
         self._set(phase="launching", message=f"Launching {n} windows of {self.game['meta']['name']}")
         for i, inst in enumerate(self.instances):
             folder = f"p{i + 1}"
             extra = race_config(self.participants, self.purchases, self.settings, i, rects[i],
                                 self.race.input_driver)
+            inst.slot = self._stage_start_state(rom, self.settings.sub_state("states", folder))
+            if inst.slot:
+                extra["state_slot"] = inst.slot
             cfg = self.launcher.write_config(f"race_{folder}", extra, port=inst.port, folder=folder)
-            slot = self._stage_start_state(rom, self.settings.sub_state("states", folder))
             try:
-                inst.process = self.launcher.launch(core, rom, cfg, entry_slot=slot,
+                inst.process = self.launcher.launch(core, rom, cfg, entry_slot=inst.slot,
                                                     log_name=f"retroarch_{folder}.log")
             except OSError as e:
                 raise MatchError(f"cannot launch RetroArch: {e}")
             if placer:
-                placer.add(inst.process.pid, rects[i])
+                placer.add(inst.process.pid, rects[i], border=self._border(self.participants[i]))
         if placer:
             placer.start(timeout=self.settings.boot_timeout + 60)
         self._set(phase="waiting", message="Waiting for RetroArch...")
@@ -488,9 +599,14 @@ class MatchRunner:
                 if inst.process.poll() is not None:
                     raise MatchError(f"{who} exited during startup")
                 raise MatchError(f"{who} did not respond on port {inst.port}")
+            if self.settings.start_countdown > 0:
+                # freeze it while the others boot, rewound to the exact start frame so nobody is ahead
+                self._hold(inst.client, True, rewind=bool(inst.slot))
         if placer:
             placer.refresh()
         try:
+            if self.settings.start_countdown > 0:
+                self._countdown([inst.client for inst in self.instances])
             return self._race_loop()
         finally:
             self._close_race()
@@ -539,7 +655,7 @@ class MatchRunner:
                         ready[key] = rv is not None and compare(ready_spec.get("op", "eq"), rv,
                                                                 int(ready_spec["value"]))
                     try:
-                        values[key] = inst.memory.read(var_for(metric, 1, defaults))
+                        values[key] = read_metric(inst.memory, metric, 1, defaults)
                     except KeyError:
                         values[key] = None
                 if all(v is None for v in values.values()):

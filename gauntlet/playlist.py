@@ -45,8 +45,19 @@ class Playlist:
         if not self.entries:
             raise ValueError("playlist has no games")
         if self.shuffle:
-            return random.Random(session.seed + index).choice(self.entries)
+            return self._shuffled(session.seed, index // len(self.entries))[index % len(self.entries)]
         return self.entries[index % len(self.entries)]
+
+    def _shuffled(self, seed, cycle):
+        """Every entry once per cycle in a random order; a game only repeats after all have been played,
+        and never back to back across a cycle boundary."""
+        order = list(range(len(self.entries)))
+        random.Random(f"{seed}:{cycle}").shuffle(order)
+        if cycle and len(order) > 1:
+            prev_last = self._shuffled(seed, cycle - 1)[-1]
+            if self.entries[order[0]] == prev_last:
+                order[0], order[-1] = order[-1], order[0]
+        return [self.entries[i] for i in order]
 
     def _make(self, session, players, label="", stage=None, slot=None):
         number = len(session.rounds) + 1

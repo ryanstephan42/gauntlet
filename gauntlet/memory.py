@@ -1,5 +1,5 @@
 """Typed values in emulated RAM: size/endian/sign/bitmask encoding and host-layout mapping."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 LAYOUT_XOR = {"linear": 0, "swap16": 1, "swap32": 3}
 
@@ -136,6 +136,58 @@ def var_for(spec, port=None, defaults=None):
         if spec.get("stride") is not None and port:
             address += parse_int(spec["stride"]) * (port - 1)
     return Var.from_spec(spec, address=address, defaults=defaults)
+
+
+def read_metric(memory, spec, port=None, defaults=None):
+    """Read a metric: its own value plus each `add` term times its `scale` (default 1).
+
+    The metric and each term may have `count` (default 1) and `step` (default its size): the sum of `count`
+    values spaced `step` bytes apart. Contiguous or overlapping values are read as one block; separated
+    values are read individually. With `pointer` the address is an offset from the pointed-to base
+    (see _pointer_base). None if any part can't be read."""
+    value = _read_summed(memory, spec, port, defaults)
+    for term in spec.get("add") or ():
+        if value is None:
+            return None
+        extra = _read_summed(memory, term, port, defaults)
+        if extra is None:
+            return None
+        value += int(term.get("scale", 1)) * extra
+    return value
+
+
+def _pointer_base(memory, spec, defaults):
+    """Offset added to the address when the spec has `pointer` ({address, size=4, mask}): the masked value
+    read there (e.g. an N64 object pointer masked to an RDRAM offset). The pointer may itself have a
+    `pointer` (a pointer to a pointer table). None if unreadable or null."""
+    ptr = spec.get("pointer")
+    if ptr is None:
+        return 0
+    outer = _pointer_base(memory, ptr, defaults)
+    if outer is None:
+        return None
+    var = Var.from_spec({"size": 4, **ptr}, defaults={k: v for k, v in (defaults or {}).items() if k == "endian"})
+    return memory.read(replace(var, address=var.address + outer)) or None
+
+
+def _read_summed(memory, spec, port, defaults):
+    base = _pointer_base(memory, spec, defaults)
+    if base is None:
+        return None
+    var = var_for(spec, port, defaults)
+    if base:
+        var = replace(var, address=var.address + base)
+    count = int(spec.get("count", 1))
+    if count <= 1:
+        return memory.read(var)
+    step = parse_int(spec.get("step", var.size))
+    if step <= var.size:
+        block = memory.read_raw(Var(var.address, step * (count - 1) + var.size, var.endian))
+        if block is None:
+            return None
+        return sum(var.decode(block[i * step:i * step + var.size]) for i in range(count))
+    values = [memory.read(replace(var, address=var.address + i * step)) for i in range(count)]
+    return None if any(value is None for value in values) else sum(values)
 
 
 def is_per_player(spec):

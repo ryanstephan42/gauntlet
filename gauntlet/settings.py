@@ -57,13 +57,21 @@ class Settings:
     poll_interval: float = 0.2
     close_delay: float = 3.0
     assign_ports: bool = True
+    # RetroArch vsync for match windows. Off by default: on Wayland two vsynced windows (a race) block
+    # each other and both run at half speed; audio sync still paces games at the right speed.
+    game_vsync: bool = False
     # Single-player challenges: everyone plays at once, one RetroArch window each (False = take turns)
     simultaneous_play: bool = True
     # retroarch input_driver for race windows ("" = auto: "udev" on Linux when the keyboard is readable,
     # so every window hears its own keys without focus)
     race_input_driver: str = ""
     race_mute_others: bool = True  # only player 1's window plays sound
-    race_place_windows: bool = True  # Hyprland/Sway: force race windows to float on their tile
+    race_place_windows: bool = True  # Hyprland/Sway: float match windows onto their tiles
+    # Hyprland/Sway: games across the top, Gauntlet's live scoreboard strip below (needs race_place_windows)
+    stage_layout: bool = True
+    stage_hud_percent: int = 25  # scoreboard strip height, % of the screen
+    start_countdown: int = 3  # seconds of 3-2-1 over the paused first frame before the clock starts (0 = off)
+    match_border: int = 6  # Hyprland: px of player-coloured border around each player's game window (0 = off)
 
     def validate(self):
         return list(_range_errors(self).values())
@@ -109,6 +117,12 @@ def _range_errors(settings):
         value = getattr(settings, name)
         if not _is_int(value) or value < lo:
             errors[name] = f"{name} must be >= {lo}"
+    if not _is_int(settings.stage_hud_percent) or not 10 <= settings.stage_hud_percent <= 50:
+        errors["stage_hud_percent"] = "stage_hud_percent must be between 10 and 50"
+    if not _is_int(settings.start_countdown) or not 0 <= settings.start_countdown <= 10:
+        errors["start_countdown"] = "start_countdown must be between 0 and 10"
+    if not _is_int(settings.match_border) or not 0 <= settings.match_border <= 30:
+        errors["match_border"] = "match_border must be between 0 and 30"
     if not _is_int(settings.width) or settings.width < 320:
         errors["width"] = "width must be at least 320"
     if not _is_int(settings.height) or settings.height < 240:

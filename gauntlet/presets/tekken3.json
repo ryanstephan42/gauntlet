@@ -1,0 +1,106 @@
+{
+  "id": "tekken3_psx_usa",
+  "title": "Tekken 3",
+  "system": "psx",
+  "match": [
+    "tekken 3"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + swanstation, Tekken 3 (USA). Screen $0AE224 (8 fight); P1 / P2 rounds won $0A926C / $0AAAF8 (0 -> 1 per round); P1 / P2 health $0A961E / $0AAEAA (130 full); rounds to win $0A04C2 (2)",
+  "game": {
+    "meta": {
+      "name": "Tekken 3",
+      "system": "psx",
+      "core": "swanstation",
+      "players": 2,
+      "description": "Arcade stage 1 in turns, or a head-to-head VS match."
+    },
+    "memory": {
+      "layout": "linear",
+      "endian": "little"
+    },
+    "challenges": [
+      {
+        "id": "arcade_stage_1",
+        "name": "Arcade Stage 1",
+        "mode": "turns",
+        "description": "Win the first Arcade match: fastest wins.",
+        "metric": {
+          "address": "0x0A926C",
+          "size": 1
+        },
+        "win": {
+          "type": "reach",
+          "value": 2
+        },
+        "time_limit": 300,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0AE224",
+          "size": 1,
+          "op": "eq",
+          "value": 8
+        },
+        "start_state": "tekken3_arcade_s1.state"
+      },
+      {
+        "id": "vs_match",
+        "name": "VS Match",
+        "mode": "versus",
+        "description": "Pick VS mode and fight: first to win 2 rounds takes it (the clock starts at the first round).",
+        "metric": {
+          "address": {
+            "1": "0x0A926C",
+            "2": "0x0AAAF8"
+          },
+          "size": 1
+        },
+        "win": {
+          "type": "reach",
+          "value": 2
+        },
+        "time_limit": 420,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0AE224",
+          "size": 1,
+          "op": "eq",
+          "value": 8
+        }
+      }
+    ],
+    "shop": [
+      {
+        "id": "iron_skin",
+        "name": "Iron Skin",
+        "cost": 2,
+        "category": "buff",
+        "target": "self",
+        "limit": 1,
+        "description": "Health refilled once, 40 seconds in",
+        "actions": [
+          {
+            "type": "memory_write",
+            "address": {
+              "1": "0x0A961E",
+              "2": "0x0AAEAA"
+            },
+            "size": 2,
+            "op": "set",
+            "value": 130,
+            "delay": 40,
+            "when": {
+              "address": "0x0AE224",
+              "size": 1,
+              "op": "eq",
+              "value": 8
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "id": "spyro_psx_usa",
+  "title": "Spyro the Dragon",
+  "system": "psx",
+  "match": [
+    "spyro the dragon",
+    "spyro"
+  ],
+  "verified": "RetroArch 1.22.2 (RetroDECK) + swanstation, Spyro the Dragon (USA). Game state $0757D8 (0 in game); total dragons $075750 (0 -> 1 on a rescue); total gems $075860; lives $07582C; level $0758B4 (0x0A Artisans)",
+  "game": {
+    "meta": {
+      "name": "Spyro the Dragon",
+      "system": "psx",
+      "core": "swanstation",
+      "players": 1,
+      "description": "Race through a random Artisans-world level (Artisans, Stone Hill, Dark Hollow, Town Square or Toasty)."
+    },
+    "memory": {
+      "layout": "linear",
+      "endian": "little"
+    },
+    "challenges": [
+      {
+        "id": "dragon_rescue",
+        "name": "Dragon Rescue",
+        "mode": "turns",
+        "description": "Random Artisans-world level (Artisans, Stone Hill, Dark Hollow, Town Square or Toasty): first to rescue two dragons wins.",
+        "metric": {
+          "address": "0x075750",
+          "size": 4
+        },
+        "win": {
+          "type": "reach",
+          "value": 2
+        },
+        "time_limit": 300,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0757D8",
+          "size": 4,
+          "op": "eq",
+          "value": 0
+        },
+        "start_state": [
+          "spyro_artisans.state",
+          "spyro_stone_hill.state",
+          "spyro_dark_hollow.state",
+          "spyro_town_square.state",
+          "spyro_toasty.state"
+        ]
+      },
+      {
+        "id": "gem_rush",
+        "name": "Gem Rush",
+        "mode": "turns",
+        "description": "Two minutes in a random Artisans-world level: most gems wins.",
+        "metric": {
+          "address": "0x075860",
+          "size": 4
+        },
+        "win": {
+          "type": "compare",
+          "order": "high"
+        },
+        "time_limit": 120,
+        "on_timeout": "compare",
+        "best_of": 1,
+        "min_time": 1,
+        "ready": {
+          "address": "0x0757D8",
+          "size": 4,
+          "op": "eq",
+          "value": 0
+        },
+        "start_state": [
+          "spyro_artisans.state",
+          "spyro_stone_hill.state",
+          "spyro_dark_hollow.state",
+          "spyro_town_square.state",
+          "spyro_toasty.state"
+        ]
+      }
+    ],
+    "shop": []
+  }
+}

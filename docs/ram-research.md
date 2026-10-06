@@ -152,18 +152,26 @@ compare against 0x30.
 | `0x0391` | u8 | Mac health (0x60 = full) | ✅ 96 |
 | `0x0398` | u8 | Opponent health (0x60 = full) | ✅ 96, writable |
 | `0x0323` / `0x0324` | u8 / u8 | Hearts tens / ones | ✅ |
-| `0x0342` | u8 | Stars (0-3) | 📝 |
-| `0x0170` / `0x0171` | u8 / u8 | Mac wins tens / ones | 📝 (mirror of losses) |
+| `0x0342` | u8 | Stars (0-3); a written star is spent by Start (star uppercut), lost when Mac is hit | ✅ writable |
+| `0x0325` / `0x0349` | u8 | 0x80 pulse = redraw hearts HUD (HUD does not redraw for RAM writes) | 📝 |
+| `0x048E` | u8 | Mac tired timer: 20 with hearts 0 → Mac turns pink and cannot punch | ✅ |
+| `0x0170` / `0x0171` | u8 / u8 | Mac wins tens / ones | ✅ 0 → 1 on a TKO of Bald Bull |
 | `0x0172` / `0x0173` | u8 / u8 | Mac losses tens / ones | ✅ 0 → 1 after a loss |
-| `0x0174` / `0x0175` | u8 / u8 | Mac KOs tens / ones | 📝 |
+| `0x0174` / `0x0175` | u8 / u8 | Mac KOs tens / ones | ✅ 0 → 1 on the same TKO |
 | `0x00C1` | u8 | Decision: 0xAA Mac wins, 0xAB opponent wins | 📝 |
-| `0x03CA` | u8 | Opponent knock-downs this round | 📝 |
+| `0x03CA` | u8 | Opponent knock-downs this round | ✅ 0 → 3 (TKO) |
 | `0x0302-0x0305` | u8 | Clock: minutes, tens of seconds, seconds | ✅ |
 | `0x03E8-0x03ED` | 6 × u8 | Points | 📝 |
 
 **Start state:** writing `0x0001 = 6` on the pre-fight "PUSH START!" screen loads the Major Circuit title bout against
 Bald Bull straight away (verified). This makes it easy to build a challenge state without playing through the Minor
 Circuit. Win = Mac wins counter (`0x0170*10 + 0x0171`) increases while `0x0001 == 6`.
+
+**Timing for writes:** the game resets health (both to 96), hearts (15) and the clock when the fight is set up, and
+re-fills the opponent's health once more during the ring intro. Writes made before the bell are lost. Gate them on the
+clock's seconds digit: `when 0x0305 == 1` fires one second after the bell (the pre-fight state holds 8 there).
+Verified: `0x0398 = 72` (Bald Bull at ¾), `0x0342 = 1` (star) and hearts `0x0323/0x0324 = 0` + `0x048E = 20`
+(tired Mac) all stick when written then. Hearts = 0 on its own does **not** make Mac tired.
 
 ### Battletoads – the sewer race  (RA 1509, ✅ partly verified, ROM 511)
 
@@ -197,7 +205,7 @@ Win = `0x0010` changes from 10 to 11 (Clinger Winger) without lives reaching 0.
 | `0x0DBF` | u8 | Coins | ✅ |
 | `0x0019` | u8 | Power-up: 0 small, 1 big, 2 cape, 3 fire | 📝 |
 | `0x0F31-0x0F33` | 3 × u8 | Level timer digits (hundreds, tens, ones) | ✅ 2,9,5 |
-| `0x1493` | u8 | End-of-level timer (non-zero once the goal tape/orb is touched, counts down) | ✅ |
+| `0x1493` | u8 | End-of-level timer (0xFF once the goal tape/orb is touched, counts down) | ✅ used as the win |
 | `0x0DD5` | u8 | Exit taken: 1 normal, 2 secret; 0x80 = died/exited without a goal | ✅ |
 | `0x141C` | u8 | Goal tape type (0 normal, 1 secret) | 📝 |
 | `0x13CE` | u8 | Midway point reached | 📝 |
@@ -206,7 +214,9 @@ Win = `0x0010` changes from 10 to 11 (Clinger Winger) without lives reaching 0.
 
 Verified sequence for a goal: the goal tape sets `0x1493 = 0xFF`, which counts down to 1, then `0x0100` goes to 0x0C
 and `0x0DD5` becomes 1. Exiting via a death (or Start+Select) leaves `0x0DD5 = 0x80` and lowers `0x0DBE`.
-Win = `0x0DD5` becomes 1 or 2 while `0x13BF` is the target level. A start state inside Yoshi's Island 1 is saved.
+Win = `0x0DD5` becomes 1 or 2 while `0x13BF` is the target level. The bundled preset uses `0x1493 ≥ 1` instead: it
+fires the moment the tape is touched (`0x0DD5` is only set seconds later). A start state inside Yoshi's Island 1 is
+saved (level start, 4 lives; an idle Mario is killed by the first Galoomba after ~4 s, which is normal).
 
 ### Street Fighter II – win a match  (RA 1192 / Turbo RA 648, 📝 RA only – ROM not in RoMM)
 
@@ -298,14 +308,19 @@ RA's notes were made on an earlier revision. On the RoMM **Rev 2** ROM some addr
 | `0x16EE` | **`0x16EC`** | u8 | Lives; the HUD shows value − 1 (3 = "×2") | ✅ |
 | `0x15AF` | **`0x15AD`** | u8 | Nova bombs (max 5) | ✅ |
 | `0x1FF9` | **`0x1FF7`** | u16 | Stage ID; Corneria on Level 1 reads 0x4F8E (RA lists 0x5068) | ✅ differs |
-| `0x16DA` | `0x16DA` | u8 | Path (in game: 0 Level 1, 1 Level 2, 2 Level 3) | ✅ 0 |
-| `0x16D8` | `0x16D8` | u8 | Stage number within the path (0 = first) | ✅ 0 |
+| `0x16DA` | **`0x16D8`** | u8 | Route (0 Level 1, 1 Level 2, 2 Level 3) | ✅ watched on all 3 routes |
+| `0x16D8` | **`0x16D6`** | u8 | Stage number within the route (0 = Corneria) | ✅ 0 → 1 after the Corneria boss |
 | `0x15BA` | ? | u8 | Level complete ("All aircraft report") | 📝 |
 | `0x1FBF-0x1FC5` | ? | u8 | Hit percentage per stage | 📝 |
 | `0x189A` | ? | u8 | Continues | 📝 |
 
 Because of the shift, presets should use the Rev 2 addresses verified above. Re-check the 📝 entries on Rev 2 before
-using them. A start state at the beginning of Corneria (Level 1) is saved.
+using them. Rev 2 `0x16DA` reads 255 on the route map and 0 in flight (not used).
+
+Start states: Corneria on each route — `sf_corneria.state` (Level 1, stage ID 0x4F8E), `sf_corneria_level2.state`
+(0x5C8C), `sf_corneria_level3.state` (0x62F5). Made from a fresh boot: title Start, controls Start, down to GAME, Start;
+on the route map up = Level 2 and down = Level 3, Start (then SNES A) to launch; saved once flying with full shield.
+Every Star Fox challenge picks one of the three at random; "Clear Corneria" uses `0x16D6` reach 1, which works on all routes.
 
 ---
 
@@ -435,6 +450,17 @@ Addresses are **logical** (big-endian, as a preset writes them; Gauntlet applies
 differs, it is shown in the "RA" column. Controller notes for the research pad: RetroPad A = N64 A, RetroPad X = N64 B,
 right stick = C buttons.
 
+### Super Mario 64 – coins and stars  (✅ verified, USA)
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x32DDF8` | u16 | Level: 16 Castle Grounds (✅), 6 castle inside, 9 Bob-omb Battlefield (decomp IDs) | ✅ |
+| `0x33B17C` | u32 | Mario action: `0x04001301` intro cutscene (through Lakitu's dialog), `0x0C400201` idle | ✅ |
+| `0x33B218` | s16 | Coins | ✅ |
+
+`sm64_castle_grounds.state` was made by booting a new file (START, then A on Mario A at ~14 s) and pressing A through
+the intro until the action reads idle (~52 s): Mario stands just out of the pipe in Castle Grounds with control.
+
 ### Pokémon Stadium 2 – beat the other player  (RA 10258, ✅ verified, ROM 367)
 
 | Address | RA | Size | Meaning | Status |
@@ -464,7 +490,20 @@ The RoMM ROM is USA v1.0. The RA notes target another revision. For this ROM, th
 | `0x385180` | u32 | Notes in the current world | 📝 offset-derived |
 
 **Win = total Jiggies (`0x3851E8`) goes above its start value.** For a race, both players start from the same state.
-A new-game state outside Banjo's house is saved; the first Jiggy (Spiral Mountain) is about a minute away.
+
+Warp and moves (from ScriptHawk `games/bk.lua`, USA v1.0 column; ✅ used to make the bundled state):
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x37DAF4` | u8 | Write 1 to load the map in `0x37DAF5` at once (Banjo appears at the level entrance) | ✅ |
+| `0x37B5A0` | u32 | Learned moves bitfield. `0x9DB9` = every Spiral Mountain move, `0xFFFFF` = all | ✅ |
+| `0x37C364` | u32 | Movement state (1 = idle) | ✅ |
+| `0x383B88` / `0x383CA0` | – | Game progress / Jiggy bitfields | 📝 |
+
+Map IDs: 1 Spiral Mountain, 2 Mumbo's Mountain, 7 Treasure Trove Cove (full list in ScriptHawk). The bundled state
+`bk_mumbos_mountain.state` is the old Spiral Mountain state warped to map 2 with moves = `0x9DB9`: Banjo stands at the
+Mumbo's Mountain entrance with 0 Jiggies, so the tutorial is skipped. (`banjo_spiral_start.state`, outside Banjo's
+house, is the earlier one.)
 
 ### Donkey Kong 64 – first to get a banana  (RA 10075, ✅ verified, ROM 325)
 
@@ -474,13 +513,30 @@ A new-game state outside Banjo's house is saved; the first Jiggy (Spiral Mountai
 | `0x76A0A8` | same | u32 | Map: 0x4C DK Rap, 0x50 main menu, 0xAB DK's House (first control), 0x22 DK Isles, 0x07 Jungle Japes | ✅ |
 | `0x76A0B1` | `0x76A0B2` | u8 | Map state: 8 in control, 24/25 cutscene | ✅ |
 | `0x7FC990 + 2 × level` | raw = logical ^ 2 | u16 | DK Golden Bananas per level, in level order: Japes 0x7FC990, Aztec 0x7FC992, Factory 0x7FC994, Galleon 0x7FC996, Fungi 0x7FC998, Caves 0x7FC99A, Castle 0x7FC99C, Helm 0x7FC99E, **Isles 0x7FC9A0** | ✅ Isles poked to 5 → pause shows 5; other levels 📝 by array order |
-| `0x7FC956` | `0x7FC954` | u16 | DK yellow (coloured) bananas | ✅ |
+| `0x7FC956` | `0x7FC954` | u16 | DK coins (the HUD value first read as "yellow bananas") | ✅ |
+| `0x7FC95A + 2 × level` | – | u16 | DK coloured bananas per level (Japes first); the other Kongs' blocks follow at +0x5E each | ✅ summed by Banana Bunch |
 | `0x744526` / `0x744524` / `0x74452A` / `0x744528` | – (RA raw) | u8 | Kong Battle wins P1 / P2 / P3 / P4 | 📝 |
 | `0x0101F0` | same | u32 | Loading / pause flag | 📝 |
 
 Each Kong has its own Golden Banana block (RA notes list them after DK's). **Win = the sum of the GB counters rises
-above its start sum.** For the Japes-first race, Japes alone is enough. A state at first control in DK's House (0 GB) is
-saved.
+above its start sum.** For the Japes-first race, Japes alone is enough.
+
+Warp and flags (from ScriptHawk `games/dk64.lua`; ✅ used to make the bundled state):
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x7444E4` / `0x7444E8` | u32 | Destination map / exit | ✅ |
+| `0x76A0B1` | u8 | Map state: OR 1 to load the destination map | ✅ |
+| `0x7467C8` | u8 | Current file index | ✅ |
+| `0x7EDEA8` | 4 × u8 | File → EEPROM slot mapping (file 0 → slot 3 in the saved states) | ✅ |
+| `0x7ECEA8 + slot × 0x1AC` | bitfield | Permanent flags (slot 3 → `0x7ED3AC`) | ✅ |
+| flags + `0x03` bit 3 | bit | Jungle Japes intro cutscene seen (`0x7ED3AF \|= 0x08`) | ✅ |
+| flags + `0x30` bits 2-5 | bits | Training barrels done (`0x7ED3DC \|= 0x3C`) | ✅ |
+
+The bundled state `dk64_japes_start.state` was made from the DK's House state: set both flags, write map 7 exit 0 and
+OR map state with 1. DK appears at the Japes entrance with control within a second (the title card shows for a few
+seconds), 0 Golden Bananas, 0 yellow bananas, game state 6. (`dk64_house_start.state`, first control in DK's House, is
+the earlier one.)
 
 ### Diddy Kong Racing – win a race  (RA 10202, ✅ verified by structure analysis, ROM 324 = USA Rev 1)
 
@@ -492,6 +548,7 @@ objects:
 | `0x1F05C0` | 8 × ptr | Racer object pointers (`0x80xxxxxx`), entry 0 = Player 1; objects are 0x790 apart | ✅ |
 | `0x1F05F0` | 8 × ptr | The same pointers sorted by current position (index 0 = leader) | ✅ |
 | `[ptr]+0x247` | u8 | Current place, 1-based | ✅ HUD "8TH" = 8 |
+| `[ptr]+0x22B` | u8 | Laps completed (0-based) | ✅ writing 2 shows "3/3" |
 | `[ptr]+0x270` | u8 | Race finished: 0 → 1 after the final line | 📝 seen on AIs |
 | `[ptr]+0x245` | u8 | Final finishing position (0 while racing) | 📝 seen on AIs |
 
@@ -527,7 +584,8 @@ results screen. A start state (Temple, 2P, First to 5, Rockets) is saved.
 
 **Win = while game state is a minigame ID, P1's reward-pending value goes 0 → > 0** (or P1's coins rise while game
 state is 0x71). Item minigames (e.g. Dorrie Dip) have no winner. A start state on the Etch 'n' Catch (2 v 2)
-explanation screen is saved.
+explanation screen is saved; press Start to begin. Teams in that state: slots 0+3 (red, Mario + Daisy) vs 1+2 (blue);
+with no input the red team won and slots 0 and 3 both went 0 → 10.
 
 ### Mario Kart 64 – win a race  (RA 10078, ✅ verified, ROM 350)
 
@@ -728,10 +786,34 @@ bedroom (new game) is saved.
 
 ---
 
-## Pointers (needed by several challenges)
+## Multi-level start states (Phase 9)
 
-Diddy Kong Racing (racer objects), Luigi's Mansion (HUD Boo count) and Pokémon Gen 3 (save blocks) all keep the
-interesting values behind pointers that change between loads. Gauntlet's schema can't express pointers yet. A
-`"pointer": {"address": ..., "size": 4, "mask": ...}` field on a memory spec (read pointer → mask → add `address`)
-would cover all three. Until then, presets can use the fixed alternatives listed above: Boo flags, battle outcome
-and trainer ID, DKR's sorted racer table compared with P1's pointer.
+A challenge's `start_state` can be a list; each match picks one state at random and every player gets the same one.
+These sets were made with a scripted RetroArch harness that pokes RAM (or drives the menus) and saves a state. Each
+state was loaded again from a fresh launch and checked: right level, player in control, counters at their start values.
+
+| Game | States | How they were made |
+|---|---|---|
+| Banjo-Kazooie | 5: Mumbo's Mountain, Treasure Trove Cove, Clanker's Cavern, Bubblegloop Swamp, Gobi's Valley | From the Spiral Mountain state: moves `0x37B5A0 = 0xFFFFF` (all), map `0x37DAF5` (2 / 7 / 0x0B / 0x0D / 0x12), entrance `0x37DAF6`, then `0x37DAF4 = 1` loads it |
+| Donkey Kong 64 | 5: Jungle Japes, Angry Aztec, Frantic Factory, Gloomy Galleon, Fungi Forest | Permanent flags OR'd in at `0x7ED3AC` (all Kongs freed, cutscenes and training done), every Kong's moves/guns/instruments set in the per-Kong blocks from `0x7FC950` (stride 0x5E), then the warp above (map 0x07 / 0x26 / 0x1A / 0x1E / 0x30). Metrics sum each Kong's per-level counters with `count`/`step` |
+| Super Mario 64 | 4 castle floors (lobby, upstairs, basement, third floor) + Bowser 3 arena | 120-star save written to both save-buffer copies (`0x207700`, `0x207738`, with checksum), star count `0x33B21A = 120`, then a warp request: bytes level/area/node at `0x33B249`, `0x33B248 = 1`. Castle = level 6, Bowser in the Sky arena = level 34. `0x32DD84` (stars collected since the state) is reset before saving and is the metric |
+| Crash Bandicoot | 6: N. Sanity Beach, Jungle Rollers, Boulders, Upstream, Native Fortress, Up the Creek (+ Papu Papu) | From a map state with island one open: press right n times, then X; saved once `0x61994` reads 0 (in the stage) |
+| Spyro the Dragon | 5: Artisans, Stone Hill, Dark Hollow, Town Square, Toasty | In the Artisans homeworld, Spyro's position (`0x078A58` / `0x078A5C` / `0x078A60`, u32 x/y/z) is moved into each level's portal; saved when game state `0x0757D8` is back to 0 in the new level (`0x0758B4`) |
+| Super Mario World | 7: YI1, DP1, DP2, DP4, Butter Bridge 1, Cookie Mountain, Chocolate Island 1 | One state at the start of each level (game mode `0x0100 = 0x14`, `0x1493 = 0`) |
+| Mario Kart 64 | 7 GP courses: Luigi Raceway, Moo Moo Farm, Koopa Troopa Beach, Kalimari Desert, Choco Mountain, Mario Raceway, Royal Raceway | From the Luigi Raceway race state: set the decomp's `gCupSelection` / `gCourseIndexInCup` and request a game-state reload, so the next race loads the chosen course; saved on the starting grid |
+| Super Mario Kart | 8: Mario Circuit 1, Donut Plains 1 & 2, Ghost Valley 1, Choco Island 1, Koopa Beach 1, Vanilla Lake 1, Rainbow Road | From a cup-select state: cup `$0150`, track index `$0152`, `$0158 = 14`, `$0160 = 0x8000`, then `$32 = 2` (race-setup request); saved when `$0160` reads 0x0F00. New Race to the Flag challenge: lap counter `$10C1` reaches 133 (128 + 5 laps) |
+| Diddy Kong Racing | 7 Tracks-mode courses, every world (Ancient Lake, Fossil Canyon, Jungle Falls, Whale Bay, Snowball Valley, Greenwood Village, Spacedust Alley) | Picked in the Tracks menu. The racer object moves per track, so P1's racer is read through `gRacersByPort` (`0x11B46C`) with a chained `pointer` |
+| Super Smash Bros. | 8 stages, Mario vs CPU Pikachu, 2-minute time match | Stage byte `0x0A4D09` (VS settings + 1) written on the stage-select screen, then Start |
+| GoldenEye 007 | 11 multiplayer maps, 2P, Rockets | n64decomp/007 `front.c`: `MP_stage_selected` at `0x2B534` (players `0x2B520`, characters `0x2B524`, length `0x2B538`, aim `0x2B53C`, scenario `0x2B540`). From the MULTIPLAYER OPTIONS screen (`0x02A8C0 = 14`): write the stage ID (1 Temple, 2 Complex, 3 Caves, 4 Library, 5 Basement, 6 Stack, 7 Facility, 8 Bunker, 9 Archives, 10 Caverns, 11 Egypt; locked maps work too), press Start, wait 2.5 s (7 s for Facility, Bunker, Archives, Caverns) and save |
+| Star Fox | 3: Corneria on Level 1, 2 and 3 | Route map, see the Star Fox section |
+| Pokémon Stadium 2 | Battle Now face-off (one state) | Saved on the 2P Battle Now screen *before* the rental teams are drawn, so every match gets new random teams |
+
+Kirby's Dream Course was skipped: on a new save courses 2-4 are locked, and neither the course byte `0xD7BE` nor the
+pause menu got around it.
+
+## Pointers
+
+Gauntlet supports pointers: a var may have `"pointer": {"address": ..., "mask": ...}` (chainable). Its `address` is then
+an offset from the masked value stored at the pointer. Diddy Kong Racing uses it (`0x11B46C` → racer table → P1's
+racer). Luigi's Mansion (HUD Boo count) and Pokémon Gen 3 (save blocks) keep their values behind pointers too and can
+use the same field.

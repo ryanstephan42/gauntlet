@@ -223,6 +223,8 @@ class App:
         translated = self.input.translate(ev)
         if translated is None:
             return
+        if im.is_pad(translated.device) and getattr(cur, "pads_to_game", False):
+            return  # controllers belong to the RetroArch window; keyboard/mouse drive Gauntlet
         if self._text_mode() and ev.type == pygame.KEYDOWN and translated.device in (im.KEYBOARD, im.KEYBOARD2):
             name = translated.key or ""
             if len(name) == 1 or name == "space":

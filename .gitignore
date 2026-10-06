@@ -9,3 +9,4 @@ state/
 build/
 dist/
 *.egg-info/
+start_states/*.state*
