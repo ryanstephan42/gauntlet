@@ -1,192 +1,210 @@
-# New game and challenge ideas (for review)
+# New game and challenge ideas (v2, for review)
 
-Candidates to add alongside the games already in [`games+challenges.txt`](../games+challenges.txt) and
-`gauntlet_data/` (SM64, MK2, Super Mario Kart, Super Bomberman, SF2, 3rd Strike, Galaga, Tetris, Punch-Out, Mario Kart 64,
-Smash 64, GoldenEye, etc.).
+Revised after feedback:
+- **Race first.** Everyone plays at once from the same start state; first to the goal wins. Turns and score-attack are
+  avoided. Versus is only used for fighters and similar games that are head to head by nature.
+- **All emulatable consoles are in scope** (NES, SNES, Genesis, Game Boy/GBC/GBA, N64, PSX, Saturn, Dreamcast, PS2,
+  GameCube, arcade, and so on).
+- **Iconic moments, not scores.** Each challenge is one recognizable thing from gaming history, like "beat Grey Fox"
+  (already in the list). Win condition is nearly always a boss HP = 0, a flag, an item, or a level-complete flag.
 
-## What makes a good Gauntlet game
-- **Short rounds** (30 s – 3 min), so a match fits in a couch session.
-- **One clear number in RAM** (score, lines, kills, laps, coins, HP) so the win check is a simple `reach` or `compare`.
-- **Easy start**: a title-screen or early-level save state, or a RAM write that jumps to the right spot.
-- **Works both ways**: turns (everyone plays the same challenge, best number wins), race (same start state, first to the
-  goal wins), or versus (head to head).
-- **Shop-friendly**: a value we can add to or subtract from for buffs and debuffs (lives, time, HP, coins).
+Tags: **R** = race (same start state, first to finish), **V** = versus (head to head), **R*** = race where the start
+state is a save made just before the moment. Win-condition ideas are in *italics*; none of the RAM is researched yet.
 
-Repeat challenges are fine. Each game below lists 4 challenges, and some are the same challenge in different forms.
-Mode: **T** = turns, **R** = race (turns that run at the same time), **V** = versus. Likely RAM metric in italics.
-RAM addresses are not researched yet. Anything marked ✔ is a straight reuse of an existing preset pattern.
+## Format
+Each game has 3-4 moments. Most are "be first to do the famous thing".
 
 ---
 
-## Arcade / puzzle (best fit: instant score metrics)
+## Boss fights and showdowns
 
-### 1. Dr. Mario (NES / SNES)
-1. **Virus Clear Race** (R): first to clear all viruses on the same level. *viruses left = 0*
-2. **Speed Level 15** (T): fewest seconds to clear a level 15 board. *virus count, timer*
-3. **Versus Match** (V): win a 2P vs match. *wins counter*
-4. **Combo King** (T): most viruses cleared in 60 s. *viruses cleared*
+### Metal Gear Solid (PSX) - already on the list
+1. **Beat Grey Fox** (R*): the cyborg ninja fight. *boss HP = 0*
+2. **Beat Psycho Mantis** (R*): swap controller ports to dodge his reads. *boss HP = 0*
+3. **Beat Sniper Wolf** (R*): the snowfield sniper duel. *boss HP = 0*
+4. **Escape the elevator** (R*): get past Metal Gear REX's pilot, Liquid, and survive. *boss HP = 0*
 
-### 2. Tetris (Game Boy) / Tetris Attack
-1. **Sprint 40** (R): first to 40 lines. *lines*
-2. **Score Attack** (T): highest score in 3 minutes. *score*
-3. **Versus** (V): survive the other player's garbage. *game over flag*
-4. **Tetris!** (T): first to clear 4 lines at once. *lines cleared per drop*
+### Final Fantasy VII (PSX) - already on the list
+1. **Beat Sephiroth** (R*): the final boss. *boss HP = 0*
+2. **Beat Midgar Zolom** (R*): the swamp snake. *enemy HP = 0*
+3. **Beat Ruby Weapon** (R*): the optional superboss. *boss HP = 0*
+4. **Win the Chocobo race** (R*): the Gold Saucer race. *race complete flag*
 
-### 3. Pac-Man (Arcade / NES)
-1. **Dot Dash** (T): most dots in 90 s. *dots eaten*
-2. **Ghost Hunter** (T): most ghosts eaten on one power pellet. *ghost chain*
-3. **First Fruit** (R): first to reach and eat the first fruit. *fruit flag*
-4. **Survivor** (T): longest before losing all lives. *frames alive / level*
+### Mega Man 2 / 3 (NES)
+1. **Beat Wily's Dragon** (R*). *boss HP = 0*
+2. **Beat the Yellow Devil** (R*): the "pattern" fight in Mega Man 1. *boss HP = 0*
+3. **Defeat all Robot Masters in Mega Man 2 stage 1** (R*): first to Metal Man down. *boss HP = 0*
+4. **Get the Magnet Beam** (R*): no Mega Man game is complete without it. *item flag*
 
-### 4. Dig Dug (Arcade / NES)
-1. **Clear the Round** (R): first to clear round 1. *enemies left = 0*
-2. **Pump Master** (T): most enemies popped in 90 s. *kills*
-3. **Rock Drop** (T): first rock-crush kill. *rock-kill flag*
-4. **High Score** (T): top score in one life. *score*
+### Castlevania: Symphony of the Night (PSX)
+1. **Beat Richter Belmont** (R*): the first big fight. *boss HP = 0*
+2. **Beat Death** (R*): the scythe fight. *boss HP = 0*
+3. **Get the Holy Water** / any first relic (R*). *item flag*
+4. **Reach the Inverted Castle** (R*): the famous second-half reveal. *map flag*
 
-### 5. Bubble Bobble (NES / Arcade)
-1. **Stage Sprint** (R): first to finish stage 5. *stage number*
-2. **Bubble Burst** (T): most enemies popped in 60 s. *kills*
-3. **No-Damage Stage** (T): clear a stage without dying. *lives unchanged*
-4. **2P Co-op Race** (V): who has more points after 3 stages. *score*
+### Super Metroid (SNES)
+1. **Beat Ridley** (R*). *boss HP = 0*
+2. **Escape Zebes** (R*): the countdown run. *escape flag / room id*
+3. **Beat Kraid** (R*). *boss HP = 0*
+4. **Get the Morph Ball** (R*): the first upgrade. *item flag*
 
-### 6. Street Fighter II: Turbo / Super / Alpha 2 (SNES / Arcade)
-1. **First Blood** (V): first player to land a hit. *HP change*
-2. **Best of 3** (V): win a match. *rounds won*
-3. **Perfect** (V): win a round with full HP. *HP at round end*
-4. **Mirror Match** (V): Ken vs Ken, normal win condition. *rounds won*
+### Zelda: Ocarina of Time (N64)
+1. **Beat Ganon** (R*). *boss HP = 0*
+2. **Pull the Master Sword** (R*): start as a kid. *item/age flag*
+3. **Beat Gohma** (R*): the first dungeon boss. *boss HP = 0*
+4. **Win Epona** (R*): get the horse by winning the Lon Lon Ranch race. *item flag*
 
-(Existing SF2 and 3rd Strike entries can share these.)
+### Zelda: A Link to the Past (SNES)
+1. **Beat Agahnim** (R*): bounce his spell back. *boss HP = 0*
+2. **Get the Master Sword** (R*): the Lost Woods pedestal. *item flag*
+3. **Beat Ganon** (R*). *boss HP = 0*
+4. **Cross to the Dark World** (R*): the first warp. *world flag*
 
----
+### Pokemon Red/Blue (GB)
+1. **Beat Brock** (R*). *badge flag*
+2. **Catch Pikachu** (R*): get it from Viridian Forest. *party flag*
+3. **Beat the Elite Four's Lance** (R*). *trainer defeated flag*
+4. **Stop MissingNo.** (R*): pull off the Cinnabar glitch. *item/party flag*
 
-## NES / SNES / Genesis platformers and action
+### Final Fantasy VI (SNES)
+1. **Beat Ultros at the opera** (R*): the opera scene with Celes. *flag*
+2. **Beat Kefka** (R*). *boss HP = 0*
+3. **Survive the World of Ruin start** (R*): the airship crash. *flag*
+4. **Win the Magitek Armor fight** (R*): the very first boss. *flag*
 
-### 7. Super Mario Bros. (NES)
-1. **World 1-1 Race** (R): first to touch the flagpole. *level complete flag*
-2. **Coin Count** (T): most coins in 60 s. *coins*
-3. **Score Attack** (T): highest score in 90 s. *score*
-4. **Fire Flower Rush** (R): first to get Fire Mario. *power-up state*
-
-### 8. Sonic the Hedgehog (Genesis)
-1. **Green Hill Act 1 Race** (R): first to the signpost. *act clear flag*
-2. **Ring Count** (T): most rings in 60 s. *rings*
-3. **Speedrun** (T): fastest clear of Act 1. *timer*
-4. **Spin Dash Boss** (R): first to beat the Zone 1 boss. *boss HP = 0*
-
-### 9. Super Metroid (SNES)
-1. **First Missile Pickup** (R): first to grab the missile tank from a start state. *missile max*
-2. **Kill Count** (T): most enemies in 2 minutes in one room. *kills*
-3. **Boss Rush** (R): first to beat Spore Spawn. *boss HP = 0*
-4. **Energy Tank Hunt** (R): first to find an energy tank. *energy max*
-
-### 10. Donkey Kong Country (SNES)
-1. **Level Race** (R): first to finish Jungle Hijinxs. *level complete flag*
-2. **Banana Count** (T): most bananas in 90 s. *bananas*
-3. **KONG Letters** (R): first to get K-O-N-G. *letters flags*
-4. **Boss Rush** (R): first to beat Very Gnawty. *boss HP = 0*
-
-### 11. Contra (NES)
-1. **Level 1 Clear** (R): first to the end of Level 1. *level counter*
-2. **Boss Kill** (R): first to beat the Level 1 boss. *boss HP = 0*
-3. **Lives Left** (T): most lives after a fixed stretch. *lives*
-4. **Spread Gun Rush** (R): first to pick up the Spread Gun. *weapon id*
-
-### 12. Kirby's Adventure / Kirby Super Star (NES / SNES)
-1. **Level Race** (R): first to finish Vegetable Valley 1. *level complete flag*
-2. **Copy Ability Rush** (R): first to get Fire. *ability id*
-3. **Health Left** (T): most HP at the end of a stage. *HP*
-4. **Gourmet Race** (V): Kirby Super Star race, first to the finish. *position*
+### Chrono Trigger (SNES)
+1. **Beat Lavos** (R*). *boss HP = 0*
+2. **Kill Magus** (R*). *boss HP = 0*
+3. **Pull Marle's pendant out of time** (R*): the Leene Square scene. *event flag*
+4. **Escape Truce Canyon** (R*): a quick intro dungeon. *event flag*
 
 ---
 
-## Fighters and brawlers (head to head)
+## Famous firsts and "gaming history" moments
 
-### 13. Killer Instinct (SNES / Arcade)
-1. **Best of 3** (V): win a match. *rounds won*
-2. **First Combo** (V): first 5-hit combo. *combo counter*
-3. **Ultra Finish** (V): win by Ultra. *finisher flag*
-4. **Perfect** (V): win a round with full HP. *HP*
+### Super Mario Bros. (NES)
+1. **Find the Warp Zone in 1-2** (R): the famous pipes to World 4. *world counter = 4*
+2. **Beat Bowser by skipping the axe fight** (R*): run past him with fire. *world clear flag*
+3. **Beat 8-4 without the Fire Flower** (R*). *world clear flag*
+4. **Get 1-Up from the 3-1 stairs** (R*): the infinite-lives staircase. *lives >= 5*
 
-### 14. Teenage Mutant Ninja Turtles: Tournament Fighters (SNES / Genesis)
-1. **Best of 3** (V). *rounds won*
-2. **First KO** (V). *HP = 0*
-3. **Perfect** (V). *HP*
-4. **Low HP Comeback** (V): win after being under 10% HP. *HP*
+### Super Mario 64 (N64) - already in `gauntlet_data/m64.json`
+1. **Get the Bowser key** (R*): the first key. *key flag*
+2. **Get the Wing Cap** (R*): the red switch. *cap flag*
+3. **Beat Bowser (World 1)** (R*). *boss HP = 0*
+4. **Reach the roof of the castle** (R*): the Yoshi easter egg. *room id*
 
-### 15. Super Smash Bros. Melee (GameCube)
-1. **Stock Match** (V): 3 stocks, last one standing. *stocks*
-2. **KO Count** (V): most KOs in 2 minutes. *KOs*
-3. **Damage Race** (V): most damage in 60 s. *damage dealt*
-4. **Home-Run Contest** (T): farthest hit. *distance*
+### Sonic the Hedgehog 2 (Genesis)
+1. **Get all Chaos Emeralds in the first special stage** (R*): first to a 7-ring emerald. *emerald count*
+2. **Beat Dr. Robotnik in Emerald Hill** (R*). *boss HP = 0*
+3. **Become Super Sonic** (R*): collect the emeralds and hit 50 rings. *Super flag*
+4. **Escape the Death Egg** (R*). *final boss flag*
 
----
+### Doom (PSX / SNES / GBA)
+1. **Beat the Cyberdemon** (R*). *boss HP = 0*
+2. **Find the secret level (E1M9)** (R*). *level id*
+3. **Pick up the BFG** (R*): the famous weapon. *weapon flag*
+4. **Escape E1M1** (R*): the first level. *level complete flag*
 
-## Racing and sports
+### GoldenEye 007 (N64)
+1. **Beat Dam bungee** (R*): the famous jump from the Dam. *level start flag*
+2. **Beat Facility** (R*). *level complete flag*
+3. **Beat Natalya's rescue** (R*). *escort flag*
+4. **Shoot the Cuban Jungle's Janus** (R*). *boss HP = 0*
 
-### 16. F-Zero (SNES)
-1. **Mute City Lap** (T): best single lap. *lap time*
-2. **Race Win** (R): first place after 5 laps. *position, lap*
-3. **Time Attack** (T): fastest 3-lap total. *race timer*
-4. **Survival** (T): longest without crashing. *energy, frames*
+### Resident Evil 2 (PSX / N64)
+1. **Beat Tyrant** (R*). *boss HP = 0*
+2. **Beat the Licker** (R*). *flag*
+3. **Reach the Raccoon Police Station** (R*). *room id*
+4. **Beat the G Virus Birkin** (R*). *boss HP = 0*
 
-### 17. Rock 'n' Roll Racing (SNES / Genesis)
-1. **Race Win** (V). *position*
-2. **Kill Count** (T): most hits in 90 s. *kills*
-3. **Cash Grab** (T): most money in a race. *cash*
-4. **Lap Race** (R): first to 3 laps. *lap*
-
-### 18. NBA Jam (SNES / Genesis / Arcade)
-1. **First to 15** (V): first to 15 points. *score*
-2. **Quarter** (V): highest score after one 2-minute quarter. *score*
-3. **Dunks Only** (T): most dunks in a quarter. *dunks*
-4. **Steal Race** (T): most steals. *steals*
-
-### 19. Mario Tennis / Mario Golf (N64 / GBC)
-1. **First to a Set** (V). *games won*
-2. **Rally Count** (T): longest rally. *rally counter*
-3. **Closest to the Pin** (T): shortest distance on a par 3. *distance*
-4. **Lowest Score** (T): best score on hole 1. *strokes*
-
-### 20. Excitebike / Rad Racer (NES)
-1. **Track 1 Time** (T): fastest lap. *timer*
-2. **Race Win** (R): first to finish. *position*
-3. **No Crash** (T): fewest crashes in 1 lap. *crashes*
-4. **Distance** (T): farthest in 60 s. *distance*
+### Sonic / Mario Cameos
+Short "first to walk through the secret" races, handy as filler between longer ones.
 
 ---
 
-## Multiplayer party
+## Fighters (versus is the natural mode)
 
-### 21. Bomberman 64 / Saturn Bomberman
-1. **Last Alive** (V): last player standing. *alive flags*
-2. **Kill Count** (T): most kills in 2 minutes. *kills*
-3. **Power-Up Rush** (R): first to get 3 power-ups. *power-ups*
-4. **Survival** (T): longest alive. *frames alive*
+### Street Fighter II: Turbo (SNES) - already on the list
+1. **Beat Ryu with Ken** (V): the mirror of the story fight. *rounds won*
+2. **Hadouken to win** (V): win a round with a fireball. *KO flag*
+3. **Beat M. Bison** (R*): first to the final boss and beat him. *boss HP = 0*
+4. **Win a round with a perfect** (V). *HP at round end*
 
-### 22. Mario Party (N64) / WarioWare (GBA)
-1. **Minigame Win** (V): win one minigame. *winner flag*
-2. **Coin Grab** (T): most coins from a minigame. *coins*
-3. **5 Microgames** (T): most microgames passed (WarioWare). *score*
-4. **Boss Microgame** (R): first to beat one. *result flag*
+### Mortal Kombat II (arcade / SNES) - already in `gauntlet_data/mk2.json`
+1. **Fatality** (V): first to land a Fatality. *finisher flag*
+2. **Beat Shao Kahn** (R*). *boss HP = 0*
+3. **Find Smoke** (R*): the Living Forest hidden fighter. *flag*
+4. **Beat Kintaro** (R*). *boss HP = 0*
 
-### 23. Worms / Micro Machines (Genesis / SNES)
-1. **Lap Race** (R): first to finish 3 laps. *lap*
-2. **First Kill** (V): first kill. *kills*
-3. **Total Wipeout** (V): last one standing. *alive flags*
-4. **Time Trial** (T): fastest lap. *timer*
+### Tekken 3 (PSX)
+1. **Beat Ogre** (R*). *boss HP = 0*
+2. **Win with Eddy Gordo** (V). *rounds won*
+3. **Beat Jin vs. Kazuya** (V): the father-son fight. *rounds won*
+4. **Beat Tekken Force mode stage 1** (R*). *stage clear flag*
+
+### Super Smash Bros. (N64) - already on the list
+1. **KO with a Home-Run Bat** (V): the one-hit KO item. *KO flag*
+2. **Beat Master Hand** (R*). *boss HP = 0*
+3. **Win as Kirby** (V). *stocks*
+4. **Ring-out the opponent** (V): first KO. *stock change*
 
 ---
 
-## Suggested first picks
-Best ratio of effort to fun, because the metrics are simple and a start state is easy:
-1. **Dr. Mario** and **Tetris** (score or lines, instant rounds)
-2. **Super Mario Bros.** (NES flagpole race)
-3. **Sonic the Hedgehog** (rings and Act 1 race)
-4. **NBA Jam** (score, plays fast)
-5. **Killer Instinct** (reuses the fighter pattern from MK2 / SF2)
+## Racing moments
 
-## Open questions for review
-- Do we want mostly **race** challenges (everyone plays at once) or more **turns** (needs one controller each, but simpler)?
-- Are Genesis, Saturn and GameCube in scope? The README currently covers NES, SNES, N64, PSX, GBA, GameCube and FBNeo.
-- Which of these are worth a RAM research pass first (see `docs/ram-research.md` for the process)?
+### Mario Kart 64 (N64) - already on the list
+1. **Beat Rainbow Road** (R): first to finish. *race complete flag*
+2. **Hit with a Blue Shell** (R): get a Blue Shell hit while first. *item flag*
+3. **Cross the Wario Stadium finish first** (R). *race complete flag*
+4. **Take the Wario Stadium shortcut** (R): the famous Wario Stadium cut. *lap/position flag*
+
+### F-Zero GX (GameCube) - already on the list
+1. **Win Mute City** (R). *race complete flag*
+2. **Beat the Big Blue boss lap** (R). *race complete flag*
+3. **Boost off Death-Race** (R): the long race. *race complete flag*
+4. **Win Cosmo Terminal** (R). *race complete flag*
+
+### Crash Team Racing (PSX)
+1. **Beat Oxide** (R*). *race complete flag*
+2. **Get the Gem Cup** (R*). *cup flag*
+3. **Win Crash Cove** (R). *race complete flag*
+4. **Beat Papu Papu** (R*). *boss race flag*
+
+---
+
+## Platformers and puzzles that are naturally races
+
+### Dr. Mario / Tetris (NES / SNES / GB)
+1. **Clear 25 lines** (R): first to 25. *lines >= 25*
+2. **Clear all viruses** (R): first to clear. *virus count = 0*
+3. **Double Tetris** (R): first to clear four lines twice. *tetris counter = 2*
+4. **Reach level 10** (R). *level >= 10*
+
+### Pac-Man (arcade / NES)
+1. **Eat the first Ghost** (R). *ghost flag*
+2. **Eat the first fruit** (R). *fruit flag*
+3. **Clear the first maze** (R). *dots = 0*
+4. **Eat Blinky at the first power pill** (R). *ghost flag*
+
+### Donkey Kong (arcade / NES)
+1. **Reach the 25m Girder** (R). *level flag*
+2. **Reach the Hammer** (R): the first hammer. *item flag*
+3. **Climb to Pauline** (R): finish the first stage. *level complete flag*
+4. **Win the rivets** (R). *stage flag*
+
+---
+
+## What to pick first
+Best ratio of effort to fun: single boss fights from a save state are the easiest (HP = 0, we already do this
+for Punch-Out and Mega Man).
+1. **MGS: Beat Grey Fox** (already in the list)
+2. **Super Mario Bros.: Warp Zone** (a flag, no save state needed)
+3. **Super Metroid: Beat Ridley** (simple boss HP)
+4. **Zelda: ALttP: Get the Master Sword** (an item flag)
+5. **Tetris/Dr. Mario: Clear all viruses** (no save state)
+
+## Open questions
+- Do we want to commit to mostly "beat X" moments, or keep some race-to-item moments?
+- Which of these save states are we willing to produce (each boss needs one)?
+- Are PS2, Dreamcast and Saturn worth the RAM research cost, or do we stay with the cores the repo already covers?
