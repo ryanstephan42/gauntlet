@@ -4,7 +4,7 @@
     "system": "snes",
     "core": "snes9x",
     "players": 1,
-    "description": "Take turns in 1P Mario GP: coin challenges.",
+    "description": "50cc Mario GP on a random track each round (8 tracks across all four cups): race to the flag or grab coins.",
     "rom": "Super Mario Kart (USA).sfc"
   },
   "memory": {
@@ -13,10 +13,43 @@
   },
   "challenges": [
     {
+      "id": "race_finish",
+      "name": "Race to the Flag",
+      "mode": "turns",
+      "description": "A random track each round: first to finish all 5 laps wins; most laps done if time runs out.",
+      "metric": {
+        "address": "0x10C1",
+        "size": 1
+      },
+      "win": {
+        "type": "reach",
+        "value": 133
+      },
+      "time_limit": 300,
+      "on_timeout": "compare",
+      "min_time": 1,
+      "ready": {
+        "address": "0x10C1",
+        "size": 1,
+        "op": "ge",
+        "value": 127
+      },
+      "start_state": [
+        "smk_mario_circuit1.state",
+        "smk_donut_plains1.state",
+        "smk_ghost_valley1.state",
+        "smk_choco_island1.state",
+        "smk_donut_plains2.state",
+        "smk_koopa_beach1.state",
+        "smk_vanilla_lake1.state",
+        "smk_rainbow_road.state"
+      ]
+    },
+    {
       "id": "coin_rush",
       "name": "Coin Rush",
       "mode": "turns",
-      "description": "1P Mario GP: fastest to 10 coins wins.",
+      "description": "A random track: fastest to 10 coins wins.",
       "metric": {
         "address": "0x0E00",
         "size": 1
@@ -33,13 +66,23 @@
         "size": 1,
         "op": "ge",
         "value": 127
-      }
+      },
+      "start_state": [
+        "smk_mario_circuit1.state",
+        "smk_donut_plains1.state",
+        "smk_ghost_valley1.state",
+        "smk_choco_island1.state",
+        "smk_donut_plains2.state",
+        "smk_koopa_beach1.state",
+        "smk_vanilla_lake1.state",
+        "smk_rainbow_road.state"
+      ]
     },
     {
       "id": "coin_count",
       "name": "Coin Count",
       "mode": "turns",
-      "description": "Two minutes of racing each: most coins at the buzzer wins.",
+      "description": "A random track, two minutes of racing: most coins at the buzzer wins.",
       "metric": {
         "address": "0x0E00",
         "size": 1
@@ -56,7 +99,17 @@
         "size": 1,
         "op": "ge",
         "value": 127
-      }
+      },
+      "start_state": [
+        "smk_mario_circuit1.state",
+        "smk_donut_plains1.state",
+        "smk_ghost_valley1.state",
+        "smk_choco_island1.state",
+        "smk_donut_plains2.state",
+        "smk_koopa_beach1.state",
+        "smk_vanilla_lake1.state",
+        "smk_rainbow_road.state"
+      ]
     }
   ],
   "shop": [
