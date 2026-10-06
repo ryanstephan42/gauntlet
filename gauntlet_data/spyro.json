@@ -4,7 +4,7 @@
     "system": "psx",
     "core": "swanstation",
     "players": 1,
-    "description": "Take turns in Artisans.",
+    "description": "Race through a random Artisans-world level (Artisans, Stone Hill, Dark Hollow, Town Square or Toasty).",
     "rom": "Spyro the Dragon (USA).chd"
   },
   "memory": {
@@ -16,7 +16,7 @@
       "id": "dragon_rescue",
       "name": "Dragon Rescue",
       "mode": "turns",
-      "description": "Rescue two dragons in Artisans: fastest wins.",
+      "description": "Random Artisans-world level (Artisans, Stone Hill, Dark Hollow, Town Square or Toasty): first to rescue two dragons wins.",
       "metric": {
         "address": "0x075750",
         "size": 4
@@ -35,13 +35,19 @@
         "op": "eq",
         "value": 0
       },
-      "start_state": "spyro_artisans.state"
+      "start_state": [
+        "spyro_artisans.state",
+        "spyro_stone_hill.state",
+        "spyro_dark_hollow.state",
+        "spyro_town_square.state",
+        "spyro_toasty.state"
+      ]
     },
     {
       "id": "gem_rush",
       "name": "Gem Rush",
       "mode": "turns",
-      "description": "Two minutes in Artisans: most gems wins.",
+      "description": "Two minutes in a random Artisans-world level: most gems wins.",
       "metric": {
         "address": "0x075860",
         "size": 4
@@ -60,7 +66,13 @@
         "op": "eq",
         "value": 0
       },
-      "start_state": "spyro_artisans.state"
+      "start_state": [
+        "spyro_artisans.state",
+        "spyro_stone_hill.state",
+        "spyro_dark_hollow.state",
+        "spyro_town_square.state",
+        "spyro_toasty.state"
+      ]
     }
   ],
   "shop": []

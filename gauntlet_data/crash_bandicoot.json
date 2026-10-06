@@ -4,7 +4,7 @@
     "system": "psx",
     "core": "swanstation",
     "players": 1,
-    "description": "Take turns on N. Sanity Beach.",
+    "description": "Race through a random N. Sanity Island stage, or take on Papu Papu.",
     "rom": "Crash Bandicoot (USA).chd"
   },
   "memory": {
@@ -38,10 +38,42 @@
       "start_state": "crash_nsb.state"
     },
     {
+      "id": "stage_rush",
+      "name": "Stage Rush",
+      "mode": "turns",
+      "description": "Random island-one stage (N. Sanity Beach, Jungle Rollers, Boulders, Upstream, Native Fortress or Up the Creek): first to finish wins.",
+      "metric": {
+        "address": "0x61994",
+        "size": 1
+      },
+      "win": {
+        "type": "equals",
+        "value": 1
+      },
+      "time_limit": 420,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x61994",
+        "size": 1,
+        "op": "eq",
+        "value": 0
+      },
+      "start_state": [
+        "crash_nsb.state",
+        "crash_jungle_rollers.state",
+        "crash_boulders.state",
+        "crash_upstream.state",
+        "crash_native_fortress.state",
+        "crash_up_the_creek.state"
+      ]
+    },
+    {
       "id": "box_breaker",
       "name": "Box Breaker",
       "mode": "turns",
-      "description": "Two minutes on N. Sanity Beach: most boxes broken wins.",
+      "description": "Two minutes on a random island-one stage: most boxes broken wins.",
       "metric": {
         "address": "0x61985",
         "size": 1
@@ -60,7 +92,39 @@
         "op": "eq",
         "value": 0
       },
-      "start_state": "crash_nsb.state"
+      "start_state": [
+        "crash_nsb.state",
+        "crash_jungle_rollers.state",
+        "crash_boulders.state",
+        "crash_upstream.state",
+        "crash_native_fortress.state",
+        "crash_up_the_creek.state"
+      ]
+    },
+    {
+      "id": "papu_papu",
+      "name": "Beat Papu Papu",
+      "mode": "turns",
+      "description": "Boss fight: first to defeat Papu Papu wins.",
+      "metric": {
+        "address": "0x61994",
+        "size": 1
+      },
+      "win": {
+        "type": "equals",
+        "value": 1
+      },
+      "time_limit": 300,
+      "on_timeout": "compare",
+      "best_of": 1,
+      "min_time": 1,
+      "ready": {
+        "address": "0x61994",
+        "size": 1,
+        "op": "eq",
+        "value": 0
+      },
+      "start_state": "crash_papu_papu.state"
     }
   ],
   "shop": []
