@@ -390,6 +390,23 @@ def test_race_start_state_in_every_window(tmp_path, monkeypatch):
         assert read_cfg(os.path.join(st.sub_state("retroarch"), f"race_{folder}.cfg"))["state_slot"] == "1"
 
 
+def test_race_windows_share_one_of_several_start_states(tmp_path, monkeypatch):
+    st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [{}, {}]})
+    os.makedirs(st.start_states_dir)
+    names = [f"s{i}.state" for i in range(6)]
+    for i, n in enumerate(names):
+        with open(os.path.join(st.start_states_dir, n), "w") as f:
+            json.dump([{"address": 0x10, "bytes": [5]}, {"address": 0x20, "bytes": [i]}], f)
+    runner = MatchRunner(launcher, game, dict(REACH, start_state=names), [pad("a", 0), pad("b", 1)], [], st)
+    snap = run(runner)
+    assert snap["phase"] == "finished"
+    staged = []
+    for folder in ("p1", "p2"):
+        with open(os.path.join(st.sub_state("states", folder), "game.state1")) as f:
+            staged.append(f.read())
+    assert staged[0] == staged[1]                  # every window starts from the same pick
+
+
 def test_countdown_rewinds_every_window_to_the_start_state(tmp_path, monkeypatch):
     st, launcher, game, logs = setup(tmp_path, monkeypatch, {"players": [{}, {}]})
     st.start_countdown = 1

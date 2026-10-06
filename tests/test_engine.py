@@ -401,10 +401,43 @@ def test_start_state_lookup_and_staging(tmp_path, monkeypatch):
     assert startstate.newest_state(str(folder)).endswith("x.state2")
     startstate.clear_folder(str(folder))
     assert startstate.newest_state(str(folder)) is None
-    for bad in ("a/b.state", "..", ""):
+    for bad in ("a/b.state", "..", "", [], ["ok.state", "../x.state"], ["ok.state", 3]):
         g = normalize_game({"schema_version": 2, "meta": {"name": "T", "core": "c", "rom": "r"},
                             "challenges": [{"id": "m", "name": "M", "mode": "manual", "start_state": bad}]})
         assert any("start_state" in e for e in validate_game(g)), bad
+
+
+def test_several_start_states_one_picked_per_match(tmp_path):
+    import random
+    from gauntlet import startstate
+    user = tmp_path / "user"
+    user.mkdir()
+    for n in ("l1.state", "l2.state", "l3.state"):
+        (user / n).write_bytes(n.encode())
+    st = Settings(state_dir=str(tmp_path / "state"), start_states_dir=str(user))
+    ch = {"start_state": ["l1.state", "l2.state", "gone.state", "l3.state"]}
+    assert startstate.state_names(ch) == ["l1.state", "l2.state", "gone.state", "l3.state"]
+    picks = {startstate.find_start_state(st, ch, random.Random(i))[1] for i in range(60)}
+    assert picks == {"l1.state", "l2.state", "l3.state"}           # missing files are never picked
+    assert startstate.find_start_state(st, {"start_state": ["gone.state", "l2.state"]}) == (
+        str(user / "l2.state"), "l2.state")
+    assert startstate.find_start_state(st, {"start_state": ["gone.state"]}) == (None, "gone.state")
+    # stored as a plain string for one state (older format), a list for more, removed when empty
+    c = {}
+    startstate.set_state_names(c, ["a.state"])
+    assert c == {"start_state": "a.state"}
+    startstate.set_state_names(c, ["a.state", "b.state", "a.state", "../x"])
+    assert c == {"start_state": ["a.state", "b.state"]}
+    startstate.set_state_names(c, [])
+    assert c == {}
+    game = {"meta": {"name": "Super Mario 64"}}
+    assert startstate.next_state_name(game, {"id": "star"}) == "super_mario_64_star.state"
+    assert startstate.next_state_name(game, {"id": "star"}, ["super_mario_64_star.state"]) == (
+        "super_mario_64_star_2.state")
+    g = normalize_game({"schema_version": 2, "meta": {"name": "T", "core": "c", "rom": "r"},
+                        "challenges": [{"id": "m", "name": "M", "mode": "manual",
+                                        "start_state": ["a.state", "b.state"]}]})
+    assert validate_game(g) == []
 
 
 def test_launcher_entry_slot_and_flat_states(tmp_path):

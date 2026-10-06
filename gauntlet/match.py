@@ -234,6 +234,7 @@ class MatchRunner:
         self.settings = settings or launcher.settings
         self.game = game
         self.challenge = challenge
+        self._start_pick = None  # (path, name) of this match's start state, chosen on first launch
         self.participants = list(participants)
         self.purchases = list(purchases)
         self.mode = challenge.get("mode", "manual")
@@ -405,8 +406,11 @@ class MatchRunner:
                 self._placer.forget(self.process.pid)
 
     def _stage_start_state(self, rom, states_dir=None):
-        """Copy the challenge's start state into place (fresh for every launch/turn). -> slot or None."""
-        path, name = startstate.find_start_state(self.settings, self.challenge)
+        """Copy the challenge's start state into place (fresh for every launch/turn). -> slot or None.
+        With several states one is picked per match, so every turn and race window starts the same."""
+        if self._start_pick is None:
+            self._start_pick = startstate.find_start_state(self.settings, self.challenge)
+        path, name = self._start_pick
         if not name:
             return None
         if not path:

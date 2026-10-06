@@ -4,7 +4,7 @@
     "system": "n64",
     "core": "mupen64plus_next",
     "players": 1,
-    "description": "Take turns racing to the first Jiggy.",
+    "description": "Race to the first Jiggy in Mumbo's Mountain.",
     "rom": "Banjo-Kazooie (USA).z64"
   },
   "memory": {
@@ -16,7 +16,7 @@
       "id": "first_jiggy",
       "name": "First Jiggy",
       "mode": "turns",
-      "description": "From outside Banjo's house: first Jiggy, fastest wins.",
+      "description": "From the entrance of Mumbo's Mountain (Spiral Mountain moves learned): first Jiggy, fastest wins.",
       "metric": {
         "address": "0x3851E8",
         "size": 4
@@ -35,7 +35,7 @@
         "op": "eq",
         "value": 3
       },
-      "start_state": "banjo_spiral_start.state"
+      "start_state": "bk_mumbos_mountain.state"
     }
   ],
   "shop": [

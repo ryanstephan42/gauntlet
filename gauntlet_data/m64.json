@@ -34,7 +34,9 @@
         "size": 2,
         "op": "eq",
         "value": 16
-      }
+      },
+      "best_of": 1,
+      "start_state": "sm64_castle_grounds.state"
     },
     {
       "id": "coin_count",
@@ -58,7 +60,9 @@
         "size": 2,
         "op": "eq",
         "value": 16
-      }
+      },
+      "best_of": 1,
+      "start_state": "sm64_castle_grounds.state"
     },
     {
       "id": "first_star",
@@ -82,7 +86,9 @@
         "size": 2,
         "op": "eq",
         "value": 16
-      }
+      },
+      "best_of": 1,
+      "start_state": "sm64_castle_grounds.state"
     }
   ],
   "shop": [

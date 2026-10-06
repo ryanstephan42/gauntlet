@@ -139,7 +139,10 @@ Outline of a game config:
   - `ready` (a condition to wait for before the clock starts)
   - `setup[]` (actions)
   - `start_state`: a RetroArch save state, looked up in `start_states_dir` first and then in the
-    bundled `start_states/`. Capture one from the challenge editor.
+    bundled `start_states/`. Capture one from the challenge editor. It can also be a list of
+    names (for example one state per level): each match picks one of the states that exist, at
+    random, and every player and race window gets that same state. In the editor, "Capture from
+    the game (add another)" and "Add another .state file" add to the list.
 - `shop[]`, each item with:
   - `id`, `name`, `cost`, `category` (`buff`, `debuff` or `chaos`)
   - `target` (`self`, `opponent`, `others` or `all`), `limit`

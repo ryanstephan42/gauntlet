@@ -23,8 +23,8 @@ from ..presets import TEMPLATES, game_from_preset, generic_items, match_presets,
 from ..match import Participant, build_config
 from ..retroarch import COMMANDS, Launcher
 from ..schema import validate_game
-from ..startstate import (clear_folder, find_start_state, newest_state, save_capture, search_dirs,
-                          state_filename)
+from ..startstate import (clear_folder, locate, newest_state, next_state_name, save_capture, search_dirs,
+                          set_state_names, state_names)
 from ..stats import ACHIEVEMENTS
 from ..systems import SYSTEMS, guess_system
 from .base import BaseScreen, Field, FormScreen, MenuScreen
@@ -1136,30 +1136,39 @@ class ChallengeEditor(_SubEditor):
             F("start_state", "Start state", "button", on_press=self.start_state_menu,
               fmt=lambda _v: self.state_label(),
               help="Load a RetroArch save state when the match starts (e.g. character select with every "
-                   "player joined), so nobody sits through intros. Every turn/round restarts from it."),
+                   "player joined), so nobody sits through intros. Every turn/round restarts from it. "
+                   "Add several and each match picks one at random (e.g. a different level)."),
             F("done", "Done", "button", on_press=self.done),
         ]
         return fields
 
     def state_label(self):
-        name = self.ch.get("start_state")
-        if not name:
+        names = state_names(self.ch)
+        if not names:
             return "none - boot normally"
-        path, _name = find_start_state(self.settings, self.ch)
-        return name if path else f"{name} (missing!)"
+        missing = sum(1 for n in names if not locate(self.settings, n))
+        label = names[0] if len(names) == 1 else f"{len(names)} states, one picked per match"
+        if missing:
+            label += " (missing!)" if len(names) == 1 else f" ({missing} missing!)"
+        return label
 
     def start_state_menu(self):
         self.collect()
-        options = ["Capture from the game...", "Use a .state file..."]
-        if self.ch.get("start_state"):
-            options.append("Clear (boot normally)")
+        names = state_names(self.ch)
+        options = [f"Capture from the game{' (add another)' if names else ''}...",
+                   "Add another .state file..." if names else "Use a .state file..."]
+        if len(names) > 1:
+            options.append("Remove one...")
+        if names:
+            options.append("Clear (boot normally)" if len(names) == 1 else "Clear all (boot normally)")
         options.append("Cancel")
-        name = self.ch.get("start_state") or state_filename(self.wizard.game, self.ch)
+        name = next_state_name(self.wizard.game, self.ch, names)
 
-        def set_state(new):
-            self.ch["start_state"] = new
+        def added(new):
+            set_state_names(self.ch, names + [new])
             self.rebuild("start_state")
-            self.toast(f"Start state: {new}")
+            n = len(state_names(self.ch))
+            self.toast(f"Start state: {new}" + (f" ({n} states, one picked per match)" if n > 1 else ""))
 
         def picked(path):
             try:
@@ -1167,21 +1176,32 @@ class ChallengeEditor(_SubEditor):
             except OSError as e:
                 self.app.alert(f"Could not copy the state: {e}")
                 return
-            set_state(name)
+            added(name)
+
+        def removed(c):
+            if c in names:
+                set_state_names(self.ch, [n for n in names if n != c])
+                self.rebuild("start_state")
+                self.toast(f"Removed {c}")
 
         def chosen(c):
             if c == options[0]:
-                self.push(StateCapture(self.app, self.wizard.game, name, set_state))
+                self.push(StateCapture(self.app, self.wizard.game, name, added))
             elif c == options[1]:
                 start = next((d for d in ("~/retrodeck/states", "~/.config/retroarch/states")
                               if os.path.isdir(os.path.expanduser(d))), self.settings.sub_state("states"))
                 self.push(FileBrowser(self.app, start, picked, exts=STATE_EXTS,
                                       title="Choose a RetroArch save state"))
+            elif c == "Remove one...":
+                self.app.choose("Remove which start state?", names + ["Cancel"], removed, title="Start state")
             elif c and c.startswith("Clear"):
                 self.ch.pop("start_state", None)
                 self.rebuild("start_state")
-        self.app.choose("Start matches from a save state instead of booting the game.", options, chosen,
-                        title="Start state")
+        msg = "Start matches from a save state instead of booting the game."
+        if names:
+            msg += (f"\nCurrent: {', '.join(names)}.\nAdd more and each match picks one at random "
+                    "(e.g. a different level each round).")
+        self.app.choose(msg, options, chosen, title="Start state")
 
     def collect(self):
         """Fields -> self.ch (keeps unknown keys such as per-player maps)."""

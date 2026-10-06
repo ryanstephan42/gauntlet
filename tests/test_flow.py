@@ -603,11 +603,29 @@ def test_capture_start_state_then_match_loads_it(driver):
     assert os.path.isfile(saved)
     d.wait_for(lambda: cap.process.poll() is not None, what="RetroArch closed")
     assert "SAVE_STATE" in d.fake_log()
+    # a second state: each match then picks one of them
+    d.field("start_state")
+    d.press(Action.CONFIRM)
+    d.choose("Capture from the game (add another)...")
+    cap = d.screen
+    assert isinstance(cap, tools.StateCapture) and cap.name == "fake_fighter_ko_2.state"
+    d.wait_for(lambda: cap.phase == "ready", what="capture ready")
+    d.press(Action.CONFIRM)
+    d.wait_for(lambda: cap.captured is not None, what="second state captured")
+    d.press(Action.START)
+    assert d.screen is ed and ed.ch["start_state"] == ["fake_fighter_ko.state", "fake_fighter_ko_2.state"]
+    assert ed.state_label() == "2 states, one picked per match"
+    d.wait_for(lambda: cap.process.poll() is not None, what="RetroArch closed")
+    d.field("start_state")
+    d.press(Action.CONFIRM)
+    d.choose("Remove one...")
+    d.choose("fake_fighter_ko.state")
+    assert ed.ch["start_state"] == "fake_fighter_ko_2.state"
     d.press(Action.START)                          # editor done
     assert d.screen is wiz
     d.press(Action.START)                          # save (review step)
     assert isinstance(d.screen, tools.GamesManager)
-    assert d.app.games[0]["challenges"][0]["start_state"] == "fake_fighter_ko.state"
+    assert d.app.games[0]["challenges"][0]["start_state"] == "fake_fighter_ko_2.state"
     d.press(Action.BACK)
     assert isinstance(d.screen, flow.MainMenu)
     start_session(d)

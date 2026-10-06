@@ -170,7 +170,7 @@ pokemon stadium 2 - beat other player
            random rental team battle; win in under N turns.
 
 Banjo Kazooie - first to get a Jiggy
-  [DONE ✅] RA 10210, RoMM 305 (USA v1.0; RA notes need an offset). New-game state at Spiral Mountain saved.
+  [DONE ✅] RA 10210, RoMM 305 (USA v1.0; RA notes need an offset). New-game state at Spiral Mountain saved. Now starts from bk_mumbos_mountain.state (warped past the tutorial, SM moves learned).
   [IN ROTATION 🎮] gauntlet_data/banjo_kazooie.json: First Jiggy.
   Key RAM: game state 0x37DAE4 (3 in game), map 0x37DAF5, total jiggies 0x3851E8 (u32, verified by poke),
            health 0x3851A0, lives 0x3851A8, notes in world 0x385180.
@@ -179,7 +179,7 @@ Banjo Kazooie - first to get a Jiggy
            losing health; first to reach Treasure Trove Cove.
 
 Donkey kong 64 - first to get a banana
-  [DONE ✅] RA 10075, RoMM 325. State at first control in DK's House saved.
+  [DONE ✅] RA 10075, RoMM 325. State at first control in DK's House saved. Now starts from dk64_japes_start.state (Japes entrance, training barrels done).
   [IN ROTATION 🎮] gauntlet_data/dk64.json: First Golden Banana, Banana Bunch.
   Key RAM: game state 0x755314 (6 in game), map 0x76A0A8, DK golden bananas 0x7FC990 + 2*level
            (Isles 0x7FC9A0 verified), DK coloured bananas 0x7FC956.

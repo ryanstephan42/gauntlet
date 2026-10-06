@@ -445,6 +445,17 @@ Addresses are **logical** (big-endian, as a preset writes them; Gauntlet applies
 differs, it is shown in the "RA" column. Controller notes for the research pad: RetroPad A = N64 A, RetroPad X = N64 B,
 right stick = C buttons.
 
+### Super Mario 64 – coins and stars  (✅ verified, USA)
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x32DDF8` | u16 | Level: 16 Castle Grounds (✅), 6 castle inside, 9 Bob-omb Battlefield (decomp IDs) | ✅ |
+| `0x33B17C` | u32 | Mario action: `0x04001301` intro cutscene (through Lakitu's dialog), `0x0C400201` idle | ✅ |
+| `0x33B218` | s16 | Coins | ✅ |
+
+`sm64_castle_grounds.state` was made by booting a new file (START, then A on Mario A at ~14 s) and pressing A through
+the intro until the action reads idle (~52 s): Mario stands just out of the pipe in Castle Grounds with control.
+
 ### Pokémon Stadium 2 – beat the other player  (RA 10258, ✅ verified, ROM 367)
 
 | Address | RA | Size | Meaning | Status |
@@ -474,7 +485,20 @@ The RoMM ROM is USA v1.0. The RA notes target another revision. For this ROM, th
 | `0x385180` | u32 | Notes in the current world | 📝 offset-derived |
 
 **Win = total Jiggies (`0x3851E8`) goes above its start value.** For a race, both players start from the same state.
-A new-game state outside Banjo's house is saved; the first Jiggy (Spiral Mountain) is about a minute away.
+
+Warp and moves (from ScriptHawk `games/bk.lua`, USA v1.0 column; ✅ used to make the bundled state):
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x37DAF4` | u8 | Write 1 to load the map in `0x37DAF5` at once (Banjo appears at the level entrance) | ✅ |
+| `0x37B5A0` | u32 | Learned moves bitfield. `0x9DB9` = every Spiral Mountain move, `0xFFFFF` = all | ✅ |
+| `0x37C364` | u32 | Movement state (1 = idle) | ✅ |
+| `0x383B88` / `0x383CA0` | – | Game progress / Jiggy bitfields | 📝 |
+
+Map IDs: 1 Spiral Mountain, 2 Mumbo's Mountain, 7 Treasure Trove Cove (full list in ScriptHawk). The bundled state
+`bk_mumbos_mountain.state` is the old Spiral Mountain state warped to map 2 with moves = `0x9DB9`: Banjo stands at the
+Mumbo's Mountain entrance with 0 Jiggies, so the tutorial is skipped. (`banjo_spiral_start.state`, outside Banjo's
+house, is the earlier one.)
 
 ### Donkey Kong 64 – first to get a banana  (RA 10075, ✅ verified, ROM 325)
 
@@ -489,8 +513,24 @@ A new-game state outside Banjo's house is saved; the first Jiggy (Spiral Mountai
 | `0x0101F0` | same | u32 | Loading / pause flag | 📝 |
 
 Each Kong has its own Golden Banana block (RA notes list them after DK's). **Win = the sum of the GB counters rises
-above its start sum.** For the Japes-first race, Japes alone is enough. A state at first control in DK's House (0 GB) is
-saved.
+above its start sum.** For the Japes-first race, Japes alone is enough.
+
+Warp and flags (from ScriptHawk `games/dk64.lua`; ✅ used to make the bundled state):
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x7444E4` / `0x7444E8` | u32 | Destination map / exit | ✅ |
+| `0x76A0B1` | u8 | Map state: OR 1 to load the destination map | ✅ |
+| `0x7467C8` | u8 | Current file index | ✅ |
+| `0x7EDEA8` | 4 × u8 | File → EEPROM slot mapping (file 0 → slot 3 in the saved states) | ✅ |
+| `0x7ECEA8 + slot × 0x1AC` | bitfield | Permanent flags (slot 3 → `0x7ED3AC`) | ✅ |
+| flags + `0x03` bit 3 | bit | Jungle Japes intro cutscene seen (`0x7ED3AF \|= 0x08`) | ✅ |
+| flags + `0x30` bits 2-5 | bits | Training barrels done (`0x7ED3DC \|= 0x3C`) | ✅ |
+
+The bundled state `dk64_japes_start.state` was made from the DK's House state: set both flags, write map 7 exit 0 and
+OR map state with 1. DK appears at the Japes entrance with control within a second (the title card shows for a few
+seconds), 0 Golden Bananas, 0 yellow bananas, game state 6. (`dk64_house_start.state`, first control in DK's House, is
+the earlier one.)
 
 ### Diddy Kong Racing – win a race  (RA 10202, ✅ verified by structure analysis, ROM 324 = USA Rev 1)
 

@@ -76,6 +76,20 @@ Make a match look like one screen: the games across the top and a live scoreboar
    - **Lost compared to RetroArch:** shaders/overlays, hotkeys and the menu, RetroDECK's per-system settings and controller autoconfig, netplay, run-ahead, and RetroArch's audio resampling and sync.
    - **Recommendation:** keep the RetroArch stage layout (7.1–7.3) as the default; it already gives the one-screen look, live metrics and fair starts on every system. An in-window mode is realistic for SNES/NES/GBA/PS1 (12 of 21 games) as an opt-in later. N64 in-window would need the C shim plus a GL HW-render path (or RetroArch per N64 game).
 
+## Phase 8: Play-test fixes — DONE
+Fixes from the first couch play-test.
+1. Shuffle — DONE (`7ace8b8`). Shuffle plays every game once per cycle; games only repeat when there are more rounds than games, and never back to back across cycles.
+2. Punch-Out shop — DONE (`7ace8b8`). Star Start (buyer starts with a star), Running on Empty (opponent at 0 hearts) and Softened Up (Bald Bull at 3/4 health), gated on the fight clock so the bell-time reset doesn't undo them.
+3. Pad isolation — DONE (`ab2563f`). In the Memory Lab and state capture, gamepads go to the game and keyboard/mouse to Gauntlet.
+4. N64 speed — DONE (`e4d8c5a`). Two vsynced RetroArch windows on Wayland halved each other's speed (SM64 measured 15 vs 28 ticks/s). New setting `game_vsync` (default off); audio sync keeps the pace. This also covers Smash 64.
+5. Monitor anchoring — DONE (`e4d8c5a`). Game windows go to the monitor holding Gauntlet's window (Hyprland: `movetoworkspacesilent` to that monitor's workspace), not the monitor they opened on.
+6. Several start states per challenge — DONE. `start_state` may be a list; each match picks one existing state at random and every turn and race window uses that same pick. The challenge editor can add another capture or `.state` file, remove one, or clear all. Packs carry every state in the list. Tests cover validation, the per-match pick, race windows sharing it, packs and the editor flow.
+7. Better start states — DONE (made with a scripted virtual pad and RAM writes; see `docs/ram-research.md`):
+   - SM64: `sm64_castle_grounds.state`, just out of the pipe with control (all three SM64 challenges).
+   - DK64: `dk64_japes_start.state`, Jungle Japes entrance with the training barrels done.
+   - Banjo-Kazooie: `bk_mumbos_mountain.state`, Mumbo's Mountain entrance with the Spiral Mountain moves learned.
+   - Easiest way to add more: the challenge editor's "Capture from the game" (play to the spot, then "Save state now" in Gauntlet or a RetroArch save state, then "Keep it"), "Use a .state file" for an existing RetroArch state, or drop files into `start_states/` and list them in the JSON.
+
 ## Delivery order
 1. M1: Phase 0 + Phase 1 input/screen manager.
 2. M2: Phase 2 + Phase 3 client and referee (playable 2-player loop).
@@ -83,6 +97,7 @@ Make a match look like one screen: the games across the top and a live scoreboar
 4. M4: 3-4 player extras and Phase 5.
 5. M5: Phase 6 simultaneous play.
 6. M6: Phase 7 match presentation (stage layout, player borders, start countdown, in-window prototype).
+7. M7: Phase 8 play-test fixes.
 
 ## Risks / decisions
 - RAM addresses per game are the hardest part; presets + watcher are key.

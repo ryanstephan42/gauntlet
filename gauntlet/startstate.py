@@ -1,13 +1,16 @@
 """Challenge start states: RetroArch save states that skip intros (e.g. straight to character select).
 
-A challenge names a file in `start_state`. It is looked up in the user's start-states folder first
-(captures and imported packs land there), then in the folder bundled with the app. Before launch
-the file is copied to `<content>.state<ENTRY_SLOT>` in RetroArch's savestate directory and
-RetroArch is started with `--entryslot`.
+A challenge names a file in `start_state`, or a list of files: one is picked at random per match
+(e.g. ten different levels for a "beat the level" challenge); every turn and race window of that match
+uses the same one. Files are looked up in the user's start-states folder first (captures and imported
+packs land there), then in the folder bundled with the app. Before launch the file is copied to
+`<content>.state<ENTRY_SLOT>` in RetroArch's savestate directory and RetroArch is started with
+`--entryslot`.
 """
 import glob
 import logging
 import os
+import random
 import shutil
 
 from .games import slugify
@@ -32,16 +35,49 @@ def search_dirs(settings):
     return dirs
 
 
-def find_start_state(settings, challenge):
-    """-> (path or None, name or None). name is set when the challenge asks for a state."""
-    name = (challenge or {}).get("start_state")
-    if not name or not valid_name(name):
-        return None, None
+def state_names(challenge):
+    """The challenge's start state file names (`start_state` may be one name or a list)."""
+    st = (challenge or {}).get("start_state")
+    names = st if isinstance(st, list) else [st]
+    return [n for n in names if valid_name(n)]
+
+
+def set_state_names(challenge, names):
+    """Store names back: absent when empty, a plain string for one (older format), else a list."""
+    names = list(dict.fromkeys(n for n in names if valid_name(n)))
+    if not names:
+        challenge.pop("start_state", None)
+    else:
+        challenge["start_state"] = names[0] if len(names) == 1 else names
+
+
+def locate(settings, name):
     for d in search_dirs(settings):
         path = os.path.join(d, name)
         if os.path.isfile(path):
-            return path, name
-    return None, name
+            return path
+    return None
+
+
+def find_start_state(settings, challenge, rng=random):
+    """Pick the start state for one match -> (path or None, name or None). name is set when the
+    challenge asks for a state; path is None when none of its files exist."""
+    names = state_names(challenge)
+    if not names:
+        return None, None
+    found = [(locate(settings, n), n) for n in names]
+    found = [f for f in found if f[0]]
+    if not found:
+        return None, names[0]
+    return found[0] if len(found) == 1 else rng.choice(found)
+
+
+def next_state_name(game, challenge, taken=()):
+    """A fresh file name for another start state of this challenge (base name first, then _2, _3...)."""
+    base = state_filename(game, challenge)
+    stem = base[:-len(".state")]
+    names = [base] + [f"{stem}_{i}.state" for i in range(2, 1000)]
+    return next(n for n in names if n not in taken)
 
 
 def content_stem(rom):
