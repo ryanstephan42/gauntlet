@@ -22,7 +22,7 @@ Each game has 3-4 moments. Most are "be first to do the famous thing".
 1. **Beat Grey Fox** (R*): the cyborg ninja fight. *boss HP = 0*
 2. **Beat Psycho Mantis** (R*): swap controller ports to dodge his reads. *boss HP = 0*
 3. **Beat Sniper Wolf** (R*): the snowfield sniper duel. *boss HP = 0*
-4. **Escape the elevator** (R*): get past Metal Gear REX's pilot, Liquid, and survive. *boss HP = 0*
+4. **Beat Metal Gear REX** (R*): the tank-vs-Snake finale with Stingers. *boss HP = 0*
 
 ### Final Fantasy VII (PSX) - already on the list
 1. **Beat Sephiroth** (R*): the final boss. *boss HP = 0*
@@ -39,7 +39,7 @@ Each game has 3-4 moments. Most are "be first to do the famous thing".
 ### Castlevania: Symphony of the Night (PSX)
 1. **Beat Richter Belmont** (R*): the first big fight. *boss HP = 0*
 2. **Beat Death** (R*): the scythe fight. *boss HP = 0*
-3. **Get the Holy Water** / any first relic (R*). *item flag*
+3. **Get the Soul of Bat relic** (R*): the first relic. *item flag*
 4. **Reach the Inverted Castle** (R*): the famous second-half reveal. *map flag*
 
 ### Super Metroid (SNES)
@@ -107,19 +107,16 @@ Each game has 3-4 moments. Most are "be first to do the famous thing".
 4. **Escape E1M1** (R*): the first level. *level complete flag*
 
 ### GoldenEye 007 (N64)
-1. **Beat Dam bungee** (R*): the famous jump from the Dam. *level start flag*
+1. **Bungee jump off the Dam** (R*): the opening jump. *level progress flag*
 2. **Beat Facility** (R*). *level complete flag*
-3. **Beat Natalya's rescue** (R*). *escort flag*
-4. **Shoot the Cuban Jungle's Janus** (R*). *boss HP = 0*
+3. **Beat Ourumov in the Frigate** (R*). *objective flag*
+4. **Beat Trevelyan** (R*): the Cradle finale. *boss HP = 0*
 
 ### Resident Evil 2 (PSX / N64)
 1. **Beat Tyrant** (R*). *boss HP = 0*
-2. **Beat the Licker** (R*). *flag*
+2. **Beat the first Licker** (R*). *enemy HP = 0*
 3. **Reach the Raccoon Police Station** (R*). *room id*
 4. **Beat the G Virus Birkin** (R*). *boss HP = 0*
-
-### Sonic / Mario Cameos
-Short "first to walk through the secret" races, handy as filler between longer ones.
 
 ---
 
@@ -140,7 +137,7 @@ Short "first to walk through the secret" races, handy as filler between longer o
 ### Tekken 3 (PSX)
 1. **Beat Ogre** (R*). *boss HP = 0*
 2. **Win with Eddy Gordo** (V). *rounds won*
-3. **Beat Jin vs. Kazuya** (V): the father-son fight. *rounds won*
+3. **Jin vs. Kazuya** (V): the father-son fight. *rounds won*
 4. **Beat Tekken Force mode stage 1** (R*). *stage clear flag*
 
 ### Super Smash Bros. (N64) - already on the list
@@ -169,7 +166,7 @@ Short "first to walk through the secret" races, handy as filler between longer o
 1. **Beat Oxide** (R*). *race complete flag*
 2. **Get the Gem Cup** (R*). *cup flag*
 3. **Win Crash Cove** (R). *race complete flag*
-4. **Beat Papu Papu** (R*). *boss race flag*
+4. **Beat Ripper Roo** (R*). *boss race flag*
 
 ---
 
