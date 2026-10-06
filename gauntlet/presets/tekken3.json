@@ -84,7 +84,10 @@
         "actions": [
           {
             "type": "memory_write",
-            "address": "0x0A961E",
+            "address": {
+              "1": "0x0A961E",
+              "2": "0x0AAEAA"
+            },
             "size": 2,
             "op": "set",
             "value": 130,

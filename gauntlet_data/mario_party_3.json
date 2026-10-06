@@ -3,8 +3,8 @@
     "name": "Mario Party 3",
     "system": "n64",
     "core": "mupen64plus_next",
-    "players": 4,
-    "description": "Etch 'n' Catch, 2 vs 2.",
+    "players": 2,
+    "description": "Etch 'n' Catch, two human players on opposing teams with CPU teammates.",
     "rom": "Mario Party 3 (USA).z64"
   },
   "memory": {

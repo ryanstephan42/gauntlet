@@ -119,7 +119,7 @@ def test_metric_add_validation():
     assert any("step needs count" in e for e in validate_game(game({"address": "0x10", "step": "0x2"})))
 
 
-def test_read_metric_count_step_sums_block(client, fake):
+def test_read_metric_count_step_sums_counters(client, fake):
     mem = Memory(client, "swap32")
     for i, v in enumerate([1, 2, 3, 4]):
         Memory(client, "swap32").write(Var(0x40 + 0x10 * i + 2, 2, "big"), v)
@@ -127,6 +127,40 @@ def test_read_metric_count_step_sums_block(client, fake):
     spec = {"address": "0x42", "size": 2, "endian": "big", "count": 2, "step": "0x10",
             "add": [{"address": "0x62", "size": 2, "endian": "big", "count": 2, "step": "0x10", "scale": 10}]}
     assert read_metric(mem, spec) == 3 + 70
+
+
+def test_read_metric_count_step_reads_distant_counters_individually():
+    class ReadClient:
+        def __init__(self):
+            self.reads = []
+
+        def read_bytes(self, address, size):
+            self.reads.append((address, size))
+            return bytes([address & 0xFF]) * size
+
+    client = ReadClient()
+    mem = Memory(client)
+    spec = {"address": "0x10", "size": 1, "count": 2, "step": "0x10000000"}
+
+    assert read_metric(mem, spec) == 0x20
+    assert client.reads == [(0x10, 1), (0x10000010, 1)]
+
+
+def test_read_metric_contiguous_and_overlapping_counters_use_one_block():
+    class ReadClient:
+        def __init__(self):
+            self.reads = []
+
+        def read_bytes(self, address, size):
+            self.reads.append((address, size))
+            return bytes([1]) * size
+
+    client = ReadClient()
+    mem = Memory(client)
+
+    assert read_metric(mem, {"address": "0x10", "size": 2, "count": 2}) == 514
+    assert read_metric(mem, {"address": "0x20", "size": 2, "count": 2, "step": 1}) == 514
+    assert client.reads == [(0x10, 4), (0x20, 3)]
 
 
 def test_read_metric_follows_pointer(client, fake):

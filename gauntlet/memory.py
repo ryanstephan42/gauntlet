@@ -142,8 +142,9 @@ def read_metric(memory, spec, port=None, defaults=None):
     """Read a metric: its own value plus each `add` term times its `scale` (default 1).
 
     The metric and each term may have `count` (default 1) and `step` (default its size): the sum of `count`
-    values spaced `step` bytes apart, read as one block. With `pointer` the address is an offset from the
-    pointed-to base (see _pointer_base). None if any part can't be read."""
+    values spaced `step` bytes apart. Contiguous or overlapping values are read as one block; separated
+    values are read individually. With `pointer` the address is an offset from the pointed-to base
+    (see _pointer_base). None if any part can't be read."""
     value = _read_summed(memory, spec, port, defaults)
     for term in spec.get("add") or ():
         if value is None:
@@ -180,10 +181,13 @@ def _read_summed(memory, spec, port, defaults):
     if count <= 1:
         return memory.read(var)
     step = parse_int(spec.get("step", var.size))
-    block = memory.read_raw(Var(var.address, step * (count - 1) + var.size, var.endian))
-    if block is None:
-        return None
-    return sum(var.decode(block[i * step:i * step + var.size]) for i in range(count))
+    if step <= var.size:
+        block = memory.read_raw(Var(var.address, step * (count - 1) + var.size, var.endian))
+        if block is None:
+            return None
+        return sum(var.decode(block[i * step:i * step + var.size]) for i in range(count))
+    values = [memory.read(replace(var, address=var.address + i * step)) for i in range(count)]
+    return None if any(value is None for value in values) else sum(values)
 
 
 def is_per_player(spec):
