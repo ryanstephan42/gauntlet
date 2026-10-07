@@ -2,8 +2,17 @@
 
 Per-game memory addresses for the challenges in [`games+challenges.txt`](../games+challenges.txt).
 
-**Address space.** Every address is written the way Gauntlet's memory layer reads it, so the numbers can be pasted
-straight into a preset's `memory` block. For cores without a libretro memory map (snes9x), that is the
+For the complete 52-entry ideas-list audit, primary-source corrections, per-challenge
+limitations and the October 2026 local probe results, see
+[`new-game-ram-research.md`](new-game-ram-research.md). Its current-source findings take
+precedence over the preliminary community-map sections below. A readable address,
+an initial-value check, a memory write and a naturally completed challenge are
+different kinds of evidence; they must not all be called "verified".
+
+**Address space.** The original verified tables use Gauntlet's memory-read addressing.
+The newly added preliminary community-map tables retain their sources' native/banked addresses;
+they are **not paste-ready presets**. Apply the conversions and primary-source corrections in
+the [ideas-list audit](new-game-ram-research.md) first. For cores without a libretro memory map (snes9x), that is the
 `READ_CORE_RAM` space. For all other cores, it is the core's memory map, used by `READ_CORE_MEMORY`. Most systems
 match the RetroAchievements (RA) space. Where they differ, the RA address is given as well.
 
@@ -29,6 +38,12 @@ addresses below work fine.
   using the research harness. The value behaved as described (screenshot and value checked).
 - **📝 RA only** – taken from the RA notes but not checked live. Usually this is because the ROM isn't in RoMM or the
   content is too deep into the game to reach without a save state.
+- **📚 community map, 📝-equivalent** – taken from a non-RA community RAM map (Data Crystal, a disassembly, or a
+  randomizer/auto-tracker project) because RetroAchievements.org could not be reached from that initial research environment
+  (Cloudflare blocks anonymous fetches, including `codenotes.php`, with no Wayback snapshots for the per-game
+  code-notes pages). Treated exactly like 📝: sourced, with a citation, but never run against a live core.
+- **❓ not found / gap** – searched for and not located in any citable source; flagged explicitly instead of guessed.
+  Usually a generic enemy/actor HP slot stands in for "boss HP", or no discrete flag exists for a named story beat.
 
 Size notes: `u8` / `u16` / `u32` are unsigned; `bcd` means binary-coded decimal; `bit N` is a single flag.
 
@@ -193,6 +208,242 @@ each section. Lose the race three times and the level is over.
 graphics), so this challenge needs a real save state made at the start of Level 10.
 Win = `0x0010` changes from 10 to 11 (Clinger Winger) without lives reaching 0.
 
+### Mega Man 2 – beat a Robot Master / Wily  (RA 1451, initial community-map pass)
+
+The initial researcher could not retrieve RetroAchievements notes, so this table came from
+[Data Crystal's Mega Man 2 RAM map](https://datacrystal.tcrf.net/wiki/Mega_Man_2/RAM_map)
+(fetched via an `archive.org` mirror, snapshot `20241126184622`).
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x002A` | u8 | Current stage; RA 1451 explicitly identifies Metal Man as 6 | 📝 |
+| `0x009A` | bits | Robot Masters beaten / weapons unlocked (bit 0 Heat Man … bit 7 Crash Man) | 📚 |
+| `0x009B` | bits | Items unlocked: bit 0 Item-1 (helicopter), bit 1 Item-2 (jet sled), bit 2 Item-3 (climbing platform). **MM2 has no Magnet Beam** (that's MM1) — the closest analogues are Items 1-3 | 📚 |
+| `0x009C-0x00A3` | u8 each | Ammo per special weapon | 📚 |
+| `0x00A4-0x00A6` | u8 each | Item 1/2/3 ammo | 📚 |
+| `0x00A7` | u8 | Energy tanks (can exceed 4; known to break the password encoding) | 📚 |
+| `0x00A8` | u8 | Lives | 📚 |
+| `0x06C0` | u8 | Mega Man's HP | 📚 |
+| `0x06C1` | u8 | Boss HP — one shared slot, reused for every Robot Master, both Wily Castle phases (incl. the Wily Dragon/Machine) and the final boss | 📚 |
+| `0x0460` / `0x04A0` | u8 | Mega Man X / Y position | 📚 |
+
+**Primary-source correction:** RA 1451 identifies `0x002A` as the current stage
+and explicitly gives Metal Man = `0x06`; `0x00BD` is the stage-complete/boss-defeated flag.
+These supersede the inferred cursor numbering and missing-clear-flag claim in this initial pass.
+
+Candidate win = current stage (`0x002A`) matches the target stage and `0x06C1` reaches 0 while Mega Man's HP (`0x06C0`) > 0.
+Gate every `0x06C1` read on the correct `0x002A` stage plus "boss door has triggered", since the address is garbage
+between fights. The public [RA 1451 notes](https://retroachievements.org/dorequest.php?r=codenotes2&g=1451)
+were successfully retrieved in the follow-up audit without an API key.
+
+### Super Mario Bros. – find the Warp Zone / beat 1-1 / beat Bowser  (📚 community map)
+
+[Data Crystal's Super Mario Bros. RAM map](https://datacrystal.tcrf.net/wiki/Super_Mario_Bros./RAM_map) (via an
+`archive.org` mirror, snapshot `20250101012344`); scoped to the **"(JU) (PRG0) [!]"** dump.
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x000E` | u8 | Player state: 0x06 dying, 0x07 entering area, 0x08 normal, 0x0B dying anim | 📚 |
+| `0x001D` | u8 | Player "float" state; 0x03 = sliding down the flagpole | 📚 |
+| `0x0754` | u8 | Size state: 0 big, 1 small, 2 "can't hit blocks", 5 force-small | 📚 |
+| `0x0756` | u8 | Power-up state: 0 small, 1 big, ≥2 fiery | 📚 |
+| `0x075A` | u8 | Lives-minus-one; 0 is one life, `0xFF` game over, per RA 1446 | 📝 |
+| `0x075F` | u8 | World, explicitly 0-indexed in RA 1446 (World 4 = 3) | 📝 |
+| `0x0760` | u8 | Internal level/area counter; underground transitions also count, per RA 1446 | 📝 |
+| `0x0770` | u8 | Game mode: 0 title/demo, 1 normal play, 2 world finished (not every flagpole), 3 game over | 📝 |
+| `0x0016-0x001A` | u8 × 5 slots | Enemy type per slot; `0x2D` = the "Bowser (special)" object — **used for every castle boss, real or fake** | 📚 |
+| `0x001E` / `0x0023` | bits | Enemy state; `0x23 = bowser_killed` fires on any `0x2D` object's defeat | 📚 |
+| `0x07FC` | u8 | "Game difficulty (set when you beat the game)" — plausible overall-win flag | 📚 |
+| `0x07D7-0x07E2` | bcd | High score / Mario / Luigi score | 📚 |
+| `0x07F8-0x07FA` | bcd | Game timer digits | 📚 |
+| `0x0750`, `0x06D6`, `0x06D9` | u8 | Area/warp-zone pointer and "warpzone control" bytes — the page cross-references an external value table it doesn't reproduce, so the exact Warp Zone value that jumps 1-2 → World 4 needs live RAM-diffing | 📚 (existence only) |
+
+**Fake Bowser clarification (sourced separately from the [Super Mario Wiki](https://www.mariowiki.com/Impostor_Bowser)):**
+in the NES original, every castle boss in Worlds 1-7 is an "impostor" built from the same `0x2D` object and revealed as
+an ordinary enemy (a **Goomba** for World 1-4, not a Hammer Brother) if killed with 5 fireballs; only **World 8-4** is
+the real Bowser. The enemy-type byte and the `bowser_killed` flag (`0x001E`/`0x0023`) **cannot distinguish fake from
+real**. Gate a World-8 goal on world 7, but the ideas list specifically requests
+**World-1 Bowser**, so world 0 is correct for that challenge; the fake Bowser is intentional.
+
+**Blockers/risks:** scores/timer are explicit BCD; `0x075E` is documented twice on the source page with conflicting
+meanings ("prelevel flag" vs. "coins") and needs live disambiguation; a `0x87F2-0x87F4` "warpzone control" address on
+the same wiki page is outside the valid `0x0000-0x07FF` NES CPU RAM window and looks like a documentation error —
+do not use it. No discrete "took the warp pipe" bit is documented; it would have to be inferred from `0x075F` jumping
+by more than +1 in one frame.
+
+### Super Mario Bros. 3 – get the Raccoon Leaf / beat 1-1 / beat the World 1 airship / beat Bowser  (📚 community map)
+
+[Data Crystal's Super Mario Bros. 3 RAM map](https://datacrystal.tcrf.net/wiki/Super_Mario_Bros._3/RAM_map) (via an
+`archive.org` mirror, snapshot `20241118221027`).
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x0727` | u8 | World number − 1 (explicitly documented as 0-indexed) | 📚 |
+| `0x00ED` | u8 | Current form: 0 small, 1 super, 2 fire, **3 raccoon**, 4 frog, 5 Tanooki, 6 hammer | 📚 |
+| `0x0578` | u8 / bits | "Change Mario form" write target (modes 1-7, offset by one from `0x00ED`); flag bits 0x10 statue, 0x40 swim, 0x80 Kuribo's Boot | 📚 |
+| `0x0736` / `0x0737` | u8 | Mario / Luigi lives (max 63 = displayed 99) | 📚 |
+| `0x0746` / `0x0747` | u8 | Form Mario/Luigi will start the next level as | 📚 |
+| `0x0014` | bit | "Flag to return to map" — plausible level-complete/map-transition event (exact set/clear semantics not detailed on the page) | 📚 |
+| `0x7D00-0x7D3F` / `0x7D40-0x7D7F` | bits (64 B each) | Mario's / Luigi's per-level-slot level-complete flags across the world map | 📚 ⚠ see blocker |
+| `0x7D80-0x7D9B` | u8/slot | Item Mario is carrying per level (0 none, 1 mushroom, 2 flower, 3 leaf, … 9 star, 0xB hammer) | 📚 |
+
+**❓ Not found:** no distinct "airship boss defeated" byte, and no distinct "final Bowser defeated / game complete"
+byte, appear anywhere on the fetched page. Web-search results claiming specific addresses for these (e.g. `0x0776`,
+`0x07F1-0x07FF` as a boss-HP range) do **not** appear in the actual Data Crystal text and are rejected as likely
+search-summary fabrications — do not use them. The best *sourced but inferred* substitutes are a specific bit in the
+`0x7D00`/`0x7D40` per-level-complete bitfields (if you know which bit corresponds to the airship level) and the World
+counter reaching 8 combined with a "return to map" event for the final Bowser.
+
+**Blockers/risks:** the `0x6000-0x794F` "Active Block Buffer" and the `0x7D00+` level-complete-flag range are **above
+the base `0x0000-0x07FF` NES CPU RAM window** — SMB3's cartridge (MMC3 with extra work-RAM) maps additional RAM beyond
+the base 2&nbsp;KB, so these addresses are *this wiki's own tool/debugger addressing*, not necessarily what
+RetroArch/fceumm's memory-bus view exposes at the same numbers. **Reconcile against the core's actual RAM map before
+wiring up a reader** — don't assume a 1:1 match the way the NES convention table at the top of this doc implies.
+
+### Kirby's Adventure – copy Fire / beat Whispy Woods, Kracko, Nightmare  (📚 community map)
+
+[Data Crystal's Kirby's Adventure RAM map](https://datacrystal.tcrf.net/wiki/Kirby%27s_Adventure/RAM_map) (via an
+`archive.org` mirror, snapshot `20241126183810`).
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x0521-0x0527` | bits/level | Level 1-7 stage-clear progress (bit per stage within the level) | 📚 |
+| `0x0528` | u8 | **Game progress state**: 0x00-0x06 = Level 1-7 in progress, **0x08 = game cleared**, 0x09 = Extra Game cleared — best single "mode + win" byte | 📚 |
+| `0x052B-0x052F` | bits/level | Level 3-7 "press the switch" sub-objective progress (separate from stage-clear bits) | 📚 |
+| `0x0531-0x0536` | u8, bit 7 | **One boss-status byte per level (1-6)** — bit 7 set = that level's boss defeated. **This is per-level, not a single shared/reused HP byte** as might be assumed from other NES games | 📚 |
+| `0x0596` / `0x0597` | u8, ×8 scale | HP max / current — values are byte-stepped by 8 per heart unit (`hp_units = byte / 8`), not raw points | 📚 |
+| `0x0599` | u8 | Lives (max 63 = displayed 99) | 📚 |
+| `0x05E3` | u8 | Current copy ability (page cross-references a `Kirby's_Adventure/Notes#Powers` sub-page for the value table, which was **not independently fetched** — treat any specific "Fire = N" claim as unverified) | 📚 (address only) |
+| `0x05E2` | u8 | "Power of eaten enemy" — buffer before it commits to `0x05E3` | 📚 |
+
+**Blockers/risks:** boss status is **binary per-level (defeated: yes/no)**, not a running HP counter, so live
+"boss at 40%" tracking isn't documented here. The exact Whispy Woods/Kracko → level-slot mapping needs live
+confirmation (Whispy is Level 1 → `0x0531` is a safe inference; Kracko's level number varies by source and must be
+checked). **Nightmare (final boss) falls outside the 6-slot `0x0531-0x0536` range entirely** — no sourced address was
+found for his defeat; `0x0528 == 0x08` ("game cleared") is the best available win proxy. The Fire-ability numeric ID
+at `0x05E3` is unverified in this pass.
+
+### Contra – pick up the Spread Gun / beat Level 1 and its boss  (📚 community map)
+
+[Data Crystal's Contra RAM map](https://datacrystal.tcrf.net/wiki/Contra_(NES)/RAM_map) (via an `archive.org`
+mirror, snapshot `20241125025304`).
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x0018` | u8 | Game Routine Index — top-level routine (title/attract/gameplay/etc.) | 📚 |
+| `0x001C` | u8 | Demo mode (0 no, 1 yes) | 📚 |
+| `0x001D` / `0x0022` | u8 | Player mode, two **inconsistent** encodings (`0x1D`: 1 = 1P, 7 = 2P; `0x22`: 0 = 1P, 1 = 2P) — the wiki itself notes this redundancy, don't assume they agree | 📚 |
+| `0x0030` | u8 | **Current level**: 0x00-0x07 = levels 1-8, 0x09 = game-over sequence | 📚 |
+| `0x0031` | u8 | Game Completion Count — times the game has been fully beaten (final boss down) — closest "game complete" flag | 📚 |
+| `0x0032` / `0x0033` | u8 | P1 / P2 lives (0 = last life) | 📚 |
+| `0x0037` | u8 | Indoor screen cleared (bosses/cores destroyed): 0 no, 1 cleared, 0x80 cleared + fence removed | 📚 |
+| `0x003B` | u8 | **Boss defeated flag** (0 no, 1 yes; becomes 0x81/0x02 as the end-level sequence runs) — the stage/level-clear flag | 📚 |
+| `0x0083` | u8 | Enemy "current slot" index (which of 16 enemy slots is being processed) | 📚 |
+| `0x00AA` / `0x00AB` | u8 | P1 / P2 current weapon, low nibble: 0 Normal, 1 Machine Gun, 2 Flame, **3 Spread**, 4 Laser; high-nibble bit = rapid fire | 📚 |
+| `0x0528`+slot | u8 × 16 | Enemy type per slot | 📚 |
+| `0x0578`+slot | u8 × 16 | **Enemy HP per slot** — "typically the HP of the enemy", shared across all 16 slots and every enemy type in the level, including bosses | 📚 |
+| `0x07E2-0x07E3` | u8 × 2 | P1 score (×100 for the real value) | 📚 |
+
+**Weapon pickup:** no discrete "just picked up Spread Gun" event is documented — infer it from `0x00AA` transitioning
+to value `3`. **"Java man" (Level 3 boss):** this name could not be verified against any Contra boss nomenclature
+found (Data Crystal, TASVideos, or general fan material) — disambiguate which boss is actually meant before assigning
+an address; whichever it is, its HP lives in the shared `0x0578`+slot array, gated by `0x0030` (level) and the
+enemy-type table (`0x0528`+slot).
+
+**Blockers/risks:** `0x0578`-range HP is reused by **every** enemy in the level, not just bosses, and no documented
+"is this a boss" bit exists for Contra the way it does for Ninja Gaiden — identifying the boss's slot needs
+cross-referencing enemy type plus level, live. `0x001D` vs. `0x0022` disagreeing is a known wiki-documented quirk.
+Score is stored at 1/100 scale, not raw decimal.
+
+### Castlevania (NES) – get the Whip upgrade / beat the Giant Bat, Medusa, Dracula  (📚 community map, most complete of the four action-game maps)
+
+[Data Crystal's Castlevania RAM map](https://datacrystal.tcrf.net/wiki/Castlevania_(NES,_Famicom_Disk_System)/RAM_map)
+(via an `archive.org` mirror, snapshot `20250114125520`).
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x0018` | u8 | **System state**: 0 booting, 1 title, 2 demo, 3 start game, 4 intro, **5 gameplay**, 6 respawning, 7 game over, 8 door transition, 9 autowalk, 0xA entering castle, 0xB autoclimb, 0xC scoring/map, 0xD continue, 0xE falling, **0xF ending** | 📚 |
+| `0x0028` / `0x0029` | u8 | Current stage / previous stage | 📚 |
+| `0x002A` | u8 | Lives (1 = last life) | 📚 |
+| `0x0044` | u8 | Simon's **display** HP — HUD bar, lags the real value by up to 4 frames | 📚 |
+| `0x0045` | u8 | Simon's **real** HP — read this one for an instant/accurate value | 📚 |
+| `0x0048` | u8 | **Boss-screen flag** — locks scrolling; i.e. "you're in a boss arena" | 📚 |
+| `0x0070` | u8 | **Whip level/strength** (0x00-0x02) — the whip-upgrade address | 📚 |
+| `0x0071` | u8 | Hearts (sub-weapon ammo) | 📚 |
+| `0x015B` | u8 | Subweapon ID: 8 dagger, 9 boomerang, 0xA rosary (cut content), 0xB holy water, 0xD axe, 0xF stopwatch — note the page documents this as offset from another field, so values aren't a naive 0-based index | 📚 |
+| `0x01A9` | u8 | **Boss real HP** — one shared slot for every boss in the game | 📚 |
+| `0x01AA` | u8 | Boss **display** HP — HUD-lagged copy, same split as `0x0044`/`0x0045` | 📚 |
+| `0x046C`+instance | u8 | Simon's animation state (Simon = instance 0): 0 walking, 1 jumping, 2 ground attack, 3 ducking, 4 climbing stairs, 5 knocked back, 8 dead, 9 stunned | 📚 |
+| `0x07FC-0x07FE` | u8 × 3 | Score | 📚 |
+
+**Blockers/risks:** `0x01A9`/`0x01AA` (boss HP) is **explicitly the single shared address used for every boss** —
+Giant Bat, Medusa (and the Medusa Heads mini-boss), Frankenstein/Igor, Death, and all three Dracula phases all reuse
+it; it is only meaningful while `0x0048` (boss screen) is active and must not be read as "boss HP" between fights.
+Use the **real** HP addresses (`0x0045` player, `0x01A9` boss), not the **display** copies, to avoid a few frames of
+HUD-interpolation lag. `0x0028` (stage) doesn't capture sub-stage/room granularity within a stage — combine with
+`0x0046` (floor) or the `0x0018` transition states if finer location is needed. No single "stage complete" bit is
+documented; it must be inferred from `0x0028` incrementing alongside `0x0018` being in a transition state.
+
+### Ninja Gaiden – beat Act 1-1, Act bosses, Jaquio  (📚 community map, **self-flagged as a stub** on the source wiki)
+
+[Data Crystal's Ninja Gaiden RAM map](https://datacrystal.tcrf.net/wiki/Ninja_Gaiden_(NES)/RAM_map) (via an
+`archive.org` mirror, snapshot `20250520030656`, revision id 58698) is explicitly tagged "rather stubbly" on the wiki
+itself — treat as the least complete of the NES action-game maps here.
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x001E` | u8 | Pause check — top bit (0x80) set = paused | 📚 |
+| `0x0063` | u8 | Stage timer | 📚 |
+| `0x0064` | u8 | Ninja Power / spiritual energy (sub-weapon resource) | 📚 |
+| `0x0065` | u8 | **Ryu's HP** (max 0x10) | 📚 |
+| `0x0066` | u8 | Boss HP **HUD display copy only** (max 0x10) — "real enemy health is stored in an array at `0x0490-0x0497`" per the source | 📚 |
+| `0x006D` / `0x006E` | u8 | Current stage / current room — combine for something like "Act 1-1" semantics, though the game's displayed act numbering is a derived UI concept, not necessarily 1:1 with these raw counters | 📚 |
+| `0x0076` | u8 | Remaining lives | 📚 |
+| `0x0077` | u8 | Boss Rush progress — which bosses are already down for the end-game boss-rush sequence | 📚 |
+| `0x0079` | bits | Enemy flags (per-slot copy of `0x0498`,X): bit 0x01 **"set if the enemy is a boss"**, bit 0x10 defeated/death-explosion playing | 📚 |
+| `0x0490-0x0497` | u8 × 8 slots | **Enemy HP, real values** — the authoritative per-slot array; `0x0066` is only the HUD-rendered copy | 📚 |
+| `0x0498-0x049F` | bits × 8 slots | Enemy flags per slot, same layout as `0x0079`, incl. the is-boss bit | 📚 |
+| `0x04B8` | u8 | Boss-kill indicator — top two bits set the instant a boss dies — usable as a "boss just defeated" event | 📚 |
+
+**❓ Not found anywhere on this (stub) page:** a discrete act-clear flag, a Jaquio-specific HP address (he reuses the
+shared `0x0490-0x0497` slot array like every other boss, gated by `0x0079`/`0x0498`-series bit 0x01 and the final
+stage ID), and an ending/game-complete flag.
+
+**Blockers/risks:** always read the array (`0x0490-0x0497`), not the HUD copy `0x0066`, to avoid display lag, and
+resolve *which* slot is the boss via the is-boss bit before trusting its HP. The "Act 1-1"-style numbering shown
+in-game is a UI convention over the raw `0x006D`/`0x006E` stage/room counters — their exact mapping (e.g. does room 1
+always mean "1-2", or is it non-linear with branching rooms?) needs live confirmation. This source is the weakest of
+the four action-game maps and is more likely than the others to have small inaccuracies.
+
+### Dr. Mario (NES) – clear all viruses  (📚 community map; distinct engine from Tetris NES, RA 2022, already documented above)
+
+[Data Crystal's Dr. Mario RAM map](https://datacrystal.tcrf.net/wiki/Dr._Mario_(NES)/RAM_map) (via an `archive.org`
+mirror, snapshot `20250520035104`); scoped to the **"(JU) [t1]"** dump.
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x0046` | u8 | Mode (title / 1P / 2P / in-game) — the page just says "Mode" with no value table, so the live enum is undocumented | 📚 (address only) |
+| `0x0096` | u8 | Virus level (speed/difficulty setting, picked pre-game) | 📚 |
+| `0x0316` | u8 | Level number (distinct from `0x0096`) | 📚 |
+| `0x030B` | u8 | Pill speed: 0x26 fastest … 0x85 slowest | 📚 |
+| `0x0324` | u8 | **P1 viruses remaining** — win condition is this reaching 0. **Gotcha, explicit on the source page:** the byte is "stored as the decimal representation of the hex value seen on screen" (10 on-screen = byte `0x10` = decimal 16), i.e. a BCD-like nibbles-as-digits encoding — only the `== 0` win check is safe to use directly; any intermediate display needs `((byte / 16) * 10) + (byte % 16)` | 📚 |
+| `0x03A4` | u8 | P2 viruses remaining, same encoding | 📚 |
+| `0x0727` | u8 | Number of players (1P vs 2P) | 📚 |
+| `0x0400-0x047F` | 128 B, 16×8 grid | P1 playfield tiles — could be scanned for virus tile codes (0xB0-0xB2 dying, 0xD0-0xD2 virus) as a cross-check against `0x0324` | 📚 |
+| `0x0740` | u8 | **Anti-piracy flag** — nonzero freezes the game when a pill lands; confirm this reads 0 on your deployed ROM/region before relying on anything else here | 📚 ⚠ correctness trap, not game state |
+
+**❓ Not found:** no byte is labeled "game over"/"win"; `0x0324`/`0x03A4` reaching 0 is the only sourced proxy. There
+is no "lines cleared" metric at all — Dr. Mario has no line-clear mechanic, so its only progress metrics are virus
+count and level number; **Tetris (NES)'s RA-documented addresses (RA 2022) do not apply here**, confirmed by the
+completely different address neighborhood and encoding (mode `0x0046`, two-player-duplicated blocks, a pill/virus
+tile grid) versus Tetris's line-count-based engine.
+
+**Blockers/risks:** the BCD-like virus-count encoding above 9 is the main gotcha for anything beyond a `== 0` check.
+`0x0046`'s mode enum needs live capture. The anti-piracy freeze trap at `0x0740` must be confirmed inert on the exact
+ROM dump used.
+
+---
+
 ## SNES (snes9x)
 
 ### Super Mario World – beat a level  (RA 228, ✅ verified, ROM 78)
@@ -321,6 +572,235 @@ Start states: Corneria on each route — `sf_corneria.state` (Level 1, stage ID 
 (0x5C8C), `sf_corneria_level3.state` (0x62F5). Made from a fresh boot: title Start, controls Start, down to GAME, Start;
 on the route map up = Level 2 and down = Level 3, Start (then SNES A) to launch; saved once flying with full shield.
 Every Star Fox challenge picks one of the three at random; "Clear Corneria" uses `0x16D6` reach 1, which works on all routes.
+
+### The Legend of Zelda: A Link to the Past – beat Agahnim / get the Master Sword / cross to the Dark World / beat Ganon  (📚 community map)
+
+RetroAchievements.org was unreachable (Cloudflare 403 on every path). Primary sources instead: the
+[`alttp-disassembly` WRAM map](https://raw.githubusercontent.com/walkingeyerobot/alttp-disassembly/master/Zelda_3_RAM.log)
+and its [SRAM map](https://raw.githubusercontent.com/walkingeyerobot/alttp-disassembly/master/Zelda_3_SRM.log) (the
+save-data block, mirrored live into WRAM at `0x7EF000`+offset during play — the ALttP community calls this "sram"
+even though it's read the same way at runtime), cross-checked against [zsr.gg's ALttP "science" pages](https://www.zsr.gg/alttp/science/game-mode)
+(ZeldaSpeedRuns community wiki).
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x7E0010` | u8 | Main game module: 0x00 title/intro, 0x07 overworld, 0x09 dungeon, 0x0E menu, **0x1A end-sequence** | 📚 (2 independent sources agree) |
+| `0x7E0011` | u8 | Submodule index — fine state within the current module | 📚 (2 sources) |
+| `0x7E00B0` | u8 | Sub-submodule index | 📚 |
+| `0x7E007B` | u8 | Dark World indicator, but the disassembly's own comment warns it's "often used for temporary calculations… don't expect it to be reflective of the current status at all times" — **don't poll this one** | 📚 ⚠ unreliable for polling |
+| `0x7EF3CA` bit 0x40 | bit | **Persistent "currently in Dark World" flag**, part of the stable save-mirror block — preferred over `0x7E007B` | 📚 |
+| `0x7EF359` | u8 | Sword level: 0 none, 1 fighter sword, 2 Master Sword, 3 tempered, 4 golden, `0xFF` with blacksmiths (RA 355 correction) | 📝 |
+| `0x7EF362` | u16 | Current rupees | 📚 |
+| `0x7EF36D` / `0x7EF36C` | u8 | Current / max HP, in eighth-heart units (8 = 1 heart, standard Zelda convention) | 📚 |
+| `0x7E0E50-0x7E0E5F` | u8 × 16 slots | Generic on-screen sprite HP table — one byte per active sprite slot, **reused for every enemy and boss, not boss-specific** | 📚 (structure); which slot is Agahnim's or Ganon's is ❓ not found |
+
+**❓ Not found:** a boss-specific Agahnim or Ganon HP address (both would occupy some index in the generic
+`0x7E0E50`-`0x7E0E5F` table — the index is not documented and needs live testing per fight), and a dedicated "Ganon
+defeated"/game-complete bit. Earlier AI-search claims of `0x7E0C4E`/`0x7E0C4F` = Agahnim HP and `0x7EF370` = Ganon HP
+do **not** appear in the primary disassembly log and are rejected as unverified/likely fabricated — do not use them.
+The best sourced proxy for "game complete" is `0x7E0010 == 0x1A` (end-sequence module), inferred rather than a
+dedicated flag.
+
+**Blockers/risks:** no boss-specific HP exists for either fight — test by loading a save state right before each
+fight and watching the whole `0x7E0E50-0x7E0E5F` range as you damage the boss, ideally across more than one attempt
+to confirm slot stability (other sprites, like Agahnim's barrier effect, could shift index assignment). Prefer
+`0x7EF3CA` bit 0x40 over `0x7E007B` for the Dark World flag — the latter is an explicitly-documented scratch
+register. For the requested pedestal pickup, watch `0x7EF359` transition 1 -> 2
+in the correct context; `>= 2` alone would wrongly accept the blacksmith sentinel `0xFF`.
+
+### Final Fantasy VI – beat the Magitek Armor / Ultros at the Opera / beat Kefka  (📚 community map, Worlds Collide randomizer auto-tracker)
+
+RetroAchievements.org was unreachable. Primary source: the actively-maintained
+[`emotracker-pack-ff6wc`](https://raw.githubusercontent.com/ZellyDev-Games/emotracker-pack-ff6wc/main/scripts/autotracking.lua)
+"Worlds Collide" randomizer auto-tracker script, cross-checked against Data Crystal's FF6 RAM map (via `archive.org`)
+for the battle/actor-HP block structure.
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x7E11E0` | u16 | Current monster/encounter formation ID — formation **514** is the final Kefka fight | 📚 (2 independent sources agree on the structure) |
+| `0x7EE9E9` | u8 | Sound-effect-ID register; SFX id **227** combined with formation 514 is how the tracker detects the final Kefka kill | 📚 (purpose-built detector) |
+| `0x7E1600`+n×0x25, `+0x09` for HP | u16/slot | Character field/save HP, **not enemy battle HP**. RA 341 separates in-battle party HP at `0x3BF4 + 2*n`; the old shared-combatant interpretation is rejected | 📝 correction |
+| `0x7E1E8C` bit 0x02, `0x7E1E8B` bit 0x80, `0x7E1E8D` bit 0x08 | bits | Three separate bits the tracker sums into a "Magitek Armor" progress counter — **these are three different in-story Magitek battles** (e.g. South Figaro escape vs. a Narshe battle), not one flag | 📚 |
+| Opera House / Ultros scene flag | bit, named `OperaHouse` in the tracker's `EVENT_FLAGS` table, exact byte/bit within `0x7E1Exx` | Opera House sequence complete | 📚 (present in source; exact byte not re-extracted in this pass — re-grep `EVENT_FLAGS` for `OperaHouse`) |
+| `0x7E1EDE-0x7E1EDF` | bits | Which characters are in the active/reserve roster | 📚 |
+
+**❓ Not found:** a single documented "airship crash into World of Ruin" flag (the WC randomizer restructures that
+transition non-linearly, so it isn't tracked as one discrete vanilla-story event in this source — a vanilla-specific
+disassembly would be needed), and **no persistent "Kefka defeated"/game-complete bit at all** — the production
+tracker itself has to use the transient formation+SFX signature above because the final blow doesn't set a story flag
+the way earlier bosses do.
+
+**Primary-source correction:** the first boss is Whelk, not the party's Magitek Armor.
+RA 341 gives `0x1EA6` bit5 for Whelk and `0x1EE9` bit3 for opera Ultros.
+The randomizer's three Magitek events do not implement that first-boss goal.
+Multi-part bosses still require fight-specific identification; do not use field HP as enemy HP.
+The Kefka-kill heuristic (formation 514 + SFX 227)
+was written for the **Worlds Collide randomizer**, not stock FF6 — confirm both IDs still hold on a vanilla ROM
+before relying on it, and note it requires fast polling (~20 ms in the source tracker) since the signature is
+transient.
+
+### Chrono Trigger – escape Truce Canyon / pull Marle's pendant / kill Magus / beat Lavos  (📚 community map; thinnest documentation of the SNES titles researched)
+
+RetroAchievements.org was unreachable. Primary sources: Data Crystal's
+[List of Storyline Points](https://datacrystal.tcrf.net/wiki/Chrono_Trigger/List_of_Storyline_Points) and
+[RAM map](https://datacrystal.tcrf.net/wiki/Chrono_Trigger:RAM_map) (both via `archive.org`), and the
+[`Jets-of-Time-Tracker`](https://raw.githubusercontent.com/Aeralis/Jets-of-Time-Tracker/master/scripts/autotracking.lua)
+randomizer auto-tracker (live WRAM reads). A single fan ZSNES-era hacking page
+([shrines.rpgclassics.com](https://shrines.rpgclassics.com/snes/ct/hacking.shtml)) supplies the one in-battle HP
+candidate and is flagged lower-confidence below.
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x7F0000` | u8 | **Storyline counter** — one byte with a fully documented value table across the whole main quest (0x00 New Game … 0xD6 Destroyed the Black Omen/endgame); the CT community's canonical "where am I" byte | 📚 (2 independent sources agree) |
+| `0x7F0000 == 0x06` | — | "Marle has lost her pendant" — the Leene Square pendant-reaction event | 📚 |
+| `0x7F000D` bit 0x01 | bit | **Yakra defeated** (the Truce Canyon boss) — a dedicated event bit, preferred over the storyline-value range | 📚 |
+| `0x7F01FF` bit 0x04 | bit | **Magus defeated** | 📚 |
+| `0x7F0000 == 0x8A` | — | "Magus defeated" — independent second confirmation via the storyline counter | 📚 (2 sources cross-checked) |
+| `0x7F0000 == 0xD6` | — | "Destroyed the Black Omen", **not proof of defeating Lavos**; rejected as a final-win predicate | 📚 |
+| `0x7E2980-0x7E2988` | u8 × 9 | Live roster slot IDs (0 Crono, 1 Marle, 2 Lucca, 3 Robo, 4 Frog, 5 Ayla, 6 Magus, 0x80 empty) — also used by the tracker as its "is game started" check | 📚 |
+| `0x7E6BC3` (current), `+2` (max) | u16, "not always here, but around here, and always in the same column" | Generic in-battle enemy HP — explicitly self-caveated as positionally unstable by its source | 📚 ⚠ single fan source, ZSNES-era, lower confidence |
+| `0x7E3216` (Crono), +0x50/character in party order | u16 | Current HP per party character — cross-validated: the fan page's base address plus Data Crystal's independently-documented "offset 0x03 = current HP" within an 80-byte character struct line up exactly | 📚 (cross-validated from 2 independent sources, but the base address itself was derived, not stated outright — re-confirm live) |
+
+**❓ Not found:** no in-battle Lavos HP address anywhere (Lavos has unusual multi-phase/multi-part mechanics that
+could break a naive single-address read even if one existed), and no clean "game mode/scene" byte — an AI-search
+claim of `0x7E0A18` does **not** appear in the Data Crystal RAM map page or the CT tracker script and is rejected as
+unverified. Note also `0x7F0067` bits 0x07 ("zealboss" in the tracker) is **explicitly documented in the tracker's own
+comment as NOT the Lavos/Zeal-defeated flag** — it's a Death Peak path-completion marker for randomizer logic, a good
+example of why a randomizer tracker's variable names can't be trusted without reading the surrounding code.
+
+**Blockers/risks:** CT's event/boss/storyline data lives almost entirely in the **high WRAM bank `0x7F`** (flat offset
+`0x10000`+), not the low `0x7E` bank most other SNES titles here use predominantly — an easy transcription error if a
+source writes a bare 4-digit address without the bank prefix (Data Crystal implicitly assumes `0x7E` for bare 4-digit
+hex; the Lua tracker scripts are always explicit). The in-battle enemy-HP candidate needs careful live verification
+across several battles, specifically including the actual Lavos fight, before trusting it.
+
+### Donkey Kong Country – collect KONG letters / beat Jungle Hijinxs / beat Very Gnawty  (📚 community map, TCRF Notes)
+
+RetroAchievements.org was unreachable (reported RA IDs of 93/337/240 were inconsistent across searches —
+**unverified, don't trust**; confirm manually via the RA site). Primary source:
+[TCRF's Donkey Kong Country (SNES) notes](https://tcrf.net/Notes:Donkey_Kong_Country_(SNES)) (via `archive.org`),
+cross-checked against Data Crystal's RAM map page of the same name.
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x7E003E` / `0x7E0040` | u8 | Current level/room ID / next room ID | 📚 |
+| `0x7E0527` | u8 | **Map-screen boolean**: 0 in level, 1 on map — the primary game-mode byte | 📚 |
+| `0x7E056F` | u8 | Current player: 1 DK, 2 Diddy | 📚 |
+| `0x7E0577` | u8 | Lives | 📚 |
+| `0x7E057D` | bits | Map/level status: bit 0x02 "in Jumbo (bonus) Barrel", **bit 0x10 "level completed"** | 📚 |
+| `0x7E057F` | bits | **KONG letters collected, for whichever level is currently loaded**: 0x01 G, 0x02 N, 0x04 O, 0x08 K — transient/level-scoped, not a persistent per-level array | 📚 ⚠ see blocker |
+| `0x7E1503` | u8 | "Boss hit count" — **generic, reused across every boss fight**, including Very Gnawty | 📚 ⚠ see blocker |
+| `0x7E1E15-0x7E1E16` | bits | Room status: 0x0001 level start, 0x0020 bonus-room flag, 0x0800 level-warp taken | 📚 |
+
+**❓ Not found:** no dedicated "Jungle Hijinxs cleared" or "Very Gnawty HP" address — both require gating the generic
+addresses above on the correct level ID (`0x7E003E`). Jungle Hijinxs's own numeric level-index value was not
+independently confirmed (likely `0x00` as the first level, but untested).
+
+**Blockers/risks:** `0x7E1503` (boss HP) and `0x7E057F` (KONG letters) are both **transient, reused state tied to
+whatever level/boss is currently loaded**, not persistent per-level arrays — every read must be gated on "is the
+correct level ID loaded AND in-level mode" (`0x7E0527`), or the rig will read stale data from whatever was last
+loaded. Needs live testing to confirm gating timing (e.g., does the boss-hit-count reset cleanly on room entry?).
+
+### Mega Man X – get the Dash upgrade / beat Chill Penguin / beat Sigma's first form  (📚 community map, TASVideos)
+
+RetroAchievements.org was unreachable (reported RA IDs 715/584 were inconsistent — unverified). Primary source:
+[tasvideos.org/GameResources/SNES/MegaManX/RAMMap](https://tasvideos.org/GameResources/SNES/MegaManX/RAMMap) and the
+related `MegamanX/Data` page.
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x7E0BCF` | u8 | X's current HP | 📚 |
+| `0x7E1F7A` | u8 | Current stage: 0x00 intro/Highway, 0x01 Launch Octopus, 0x02 Sting Chameleon, 0x03 Armored Armadillo, 0x04 Flame Mammoth, 0x05 Storm Eagle, 0x06 Spark Mandrill, 0x07 Boomer Kuwanger, **0x08 Chill Penguin**, 0x09-0x0C Sigma stages 1-4 | 📚 |
+| `0x7E1F99` | bits | Upgrades, one bit per part: W head, X arm/buster, Y body/armor, **Z leg (Dash)** — the permanent Dash-upgrade flag | 📚 |
+| `0x7E0BFA` | u8 | Dash *timer* (frames remaining while actively dashing) — **not** the upgrade flag, don't confuse with `0x7E1F99` | 📚 |
+| `0x7E1F80` | u8 | Life counter (caps at 9) | 📚 |
+| `0x7E1F9A` | u8 | Max HP (+2 per heart tank) | 📚 |
+| `0x7E1F7E` | counter | Hadouken-capsule visit counter — increments per visit, used to gate capsule respawn; answers "Hadouken acquired" but as a counter needing a threshold interpretation, not a clean boolean | 📚 |
+| `0x7E0E68`+(slot×64)+0x27 | u8/u16 per slot (≤15 slots) | **"Object's current health"** — generic per-enemy-slot HP used for all enemies and bosses, including Chill Penguin and Sigma first form; no dedicated boss-HP byte exists | 📚 (structure, cross-confirmed on 2 TASVideos pages) |
+
+**❓ Not found:** a game-mode byte and a stage-clear flag — neither is documented on the pages checked.
+
+**Blockers/risks:** the shared enemy-HP array means there's no Chill-Penguin- or Sigma-specific byte — a rig must
+read the correct slot only while the stage ID (`0x7E1F7A`) confirms the matching boss room is loaded, ideally
+cross-checked against the enemy's object/sprite-ID field (not fully documented in the sources read) to be sure of the
+slot. The Hadouken counter's "already acquired" threshold needs live confirmation.
+
+### Yoshi's Island (Super Mario World 2) – beat 1-1 / collect 20 stars / beat Burt the Bashful / beat Baby Bowser  (📚 community map, actively-maintained disassembly wiki)
+
+RetroAchievements.org was unreachable. Primary source: a direct `git clone` of
+[`brunovalads/yoshisisland-disassembly.wiki`](https://github.com/brunovalads/yoshisisland-disassembly/wiki) (not
+Cloudflare-blocked, unlike most sites checked in this pass — cloning it was the most reliable path), cross-checked
+against Data Crystal's RAM map and TASVideos' Yoshi's Island resources page.
+
+Two memory domains are in play: standard WRAM `0x7Exxxx`, and **Super FX cartridge RAM `0x7000xx`** (mirrored at CPU
+`0x006000-0x007FFF`; the wiki notes "bank $70 is read as bank $00 by the SFX CPU") — a different domain from plain
+WRAM that a RetroArch/snes9x memory client may need to address separately.
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x7E0118` | u16 | **Game mode**, fully enumerated: e.g. 0x0F level with control, 0x22 overworld, 0x2C bonus game, 0x30 mini battle, 0x11/0x12 death (incl. "ran out of stars") | 📚 |
+| `0x7E011C` | u8 | Secondary "NMI & IRQ mode": 0x00 logo, 0x02 normal level, 0x0A Mode-7 bosses (Hookbill/Raphael), 0x0C world map, 0x0E bonus/mini-battle | 📚 |
+| `0x7E0218` | u16 | Current world number (0 = world 1, 2 = world 2, …) | 📚 |
+| `0x7E021A` | u16 | Current level number within the world — a coarse index, **not confirmed to map 1:1 to the displayed "1-1"/"1-2" labels** | 📚 (needs mapping confirmation) |
+| `0x7E03B6` | u16 | **Current star count × 10** — the live star/flower meter; doubles as Yoshi's de-facto "HP" since the game has no hearts system (rapid depletion on hit; instant loss if it hits 0 while Baby Mario is separated) | 📚 |
+| `0x7001B2` (Super FX RAM) | u16 | Baby Mario state bits: 0x0000 off-Yoshi/crying, 0x2000 Super Baby Mario, 0x4000 seized by an enemy, 0x8000 riding Yoshi | 📚 |
+| `0x7E1062` | u8 | Baby Bowser's damage — fight ends at value 3 | 📚 |
+| `0x7E1076` | u8 | Big (mecha) Bowser's damage — ends at value 7 | 📚 |
+| `0x701902`,x (Super FX RAM, "wildcard" sprite-slot table) | u8 | **Burt the Bashful's HP** — ends at 0; lives in a generic reused per-sprite scratch table, not a Burt-specific address | 📚 ⚠ see blocker |
+| `0x7E1082` | u16 | Naval Piranha HP (starts at 3) | 📚 |
+| `0x7E1078` | u16 | Salvo the Slime HP | 📚 |
+| `0x7E107C` | u8 | Hookbill's damage, ends at 6 | 📚 |
+
+**Blockers/risks:** boss HP is split across **two different memory domains** depending on the boss — most mid-bosses
+(Burt) live in Super FX RAM (`0x7000xx`) in a generic reused "wildcard" sprite table (4 bytes per sprite, "used as
+each one pleases" per the wiki), while Baby/Big Bowser are plain WRAM (`0x7E1062`/`0x7E1076`) — the rig's memory-read
+configuration must handle both domains. Burt's index `x` must correspond to the right sprite slot while his specific
+room is loaded. `0x7E021A`'s "level number" needs live testing to confirm it maps to conventional level-select labels.
+
+### Super Mario RPG – beat Mack / beat Bowyer / beat Smithy  (📚 community map, weakest event/story-flag coverage of the games researched)
+
+RetroAchievements.org was unreachable. Primary source: Data Crystal's Super Mario RPG RAM map (via `archive.org`).
+
+| Address | Size | Meaning | Status |
+|---|---|---|---|
+| `0x7EFC11`+0x80×slot | u16/slot | Battle enemy current HP — **generic slot, reused for every enemy including bosses** | 📚 (structure); per-boss slot ❓ not found |
+| `0x7EFA91`+slot | u16/slot | Battle character current HP (party, in-battle) | 📚 |
+| `0x7FF801`+slot | u16/slot | Overworld (non-battle) HP for Mario/party | 📚 |
+| Coin count | u16, exact offset not re-extracted this pass | Coin count — seen in the same cluster as the HP fields during the original fetch; re-pull before use | 📚 (located, not re-confirmed) |
+
+**❓ Not found:** no boss-specific address for Mack, Bowyer, or Smithy (all reduce to the generic enemy-HP-slot
+problem above, and Smithy specifically has multiple forms in SMRPG that may occupy different slots or even different
+battle formations — expect to re-test per form), no "Mushroom Kingdom intro complete" event flag, and no active
+SMRPG randomizer/auto-tracker project was found in this pass (unlike FF6 and Chrono Trigger, which both have one) —
+that's the likely next place to look for event-flag coverage.
+
+**Blockers/risks:** every boss-HP ask needs a live RAM watch across the `0x7EFC11`+0x80×n range during that specific
+fight (and, for Smithy, during each of his forms separately). The coin-count offset needs re-pulling from source
+before use.
+
+### Street Fighter II Turbo – supplemental check (RA 648, already documented above)
+
+Confirmed via search that **RA game id 648** is "Street Fighter II Turbo: Hyper Fighting (SNES)", consistent with
+this doc's existing SF2 Turbo section — treat as high-confidence but, like everything else in this pass, not
+independently re-verified (RA itself was unreachable). No additional citable RAM addresses were found beyond what's
+already documented above: searches for a "first hit landed" flag, a "perfect round" flag, or an M. Bison/arcade-mode
+progression marker only turned up uncitable, low-confidence Game Genie/cheat-code-site guesses (gamewinners.com,
+gamehacking.org) that don't carry documented RAM-map provenance — **not included as sourced**. This is a documented
+gap, not an added address.
+
+### Doom (SNES port) – optional, lower priority
+
+Confirmed via search that the SNES port (by Sculptured Software) uses a **Super FX 2 (GSU-2)** coprocessor cartridge
+for its pseudo-3D rendering, not a plain software renderer — this is a different, Yoshi's-Island-style split memory
+situation (standard WRAM plus Super FX cartridge RAM) rather than a simple single-address-space NES/SNES case.
+**No RetroAchievements set, Data Crystal page, TASVideos page, or TCRF page documenting specific RAM addresses
+(health, level, inventory) was found** for the SNES port in this pass. One modding-forum thread mentioned
+code-injection addresses around `0x7E51A3`/`0x7E5000-0x7E51FF`, but that's forum speculation about code hooks, not a
+documented data map — **not usable as a sourced address**. Reported as a clear gap: the port's original source was
+only recently rediscovered/archived, so community RAM-mapping work may just be beginning.
+**Follow-up correction:** the full [RA 2132 notes](https://retroachievements.org/dorequest.php?r=codenotes2&g=2132)
+were subsequently retrieved; mode `0x06B4`, level `0x06D1` and equipped weapon
+`0x0712` are now documented in the audit. The original absence finding is superseded.
 
 ---
 

@@ -2,6 +2,12 @@
 
 52 games, 4 challenges each. Section E games are listed as added; the old Super Mario World, Punch-Out, Banjo-Kazooie, Star Fox 64, Crash Bandicoot and Pokemon Emerald entries were removed because they already exist in the repo. Use it as a pool to pick priorities from.
 
+**RAM research completed for all 52 entries:** see the [game-by-game audit](new-game-ram-research.md)
+for sources, address conversions, all 208 goal dispositions and actual local RAM observations.
+Research coverage does not mean every goal has a verified detector: unresolved addresses, ROM/version
+differences, missing fight states and invalid premises are explicitly recorded there. The original
+ideas below are preserved for review; use the audit's corrections before implementing them.
+
 ## Ground rules (from review)
 - **Mostly race.** Everyone plays at once from the same start state; first to the goal wins. **V** (versus) only for fighters
   and similar. **T** (turns) only for consoles too heavy to run several windows (see "Heavier consoles").
@@ -11,7 +17,7 @@
 - **Save states:** each `*` needs one (a state just before the moment). No `*` means the title screen or a RAM write is enough.
 - All emulatable consoles are in scope. Hardware is an i7 + RTX 2060, so heavy consoles are capped (see below).
 
-Format: `Name [tier] (mode)`: what happens. *Likely win condition.* RAM addresses are not researched yet.
+Format: `Name [tier] (mode)`: what happens. *Proposed win condition, not a validated RAM predicate.*
 Games already in `games+challenges.txt` or `gauntlet_data/` are marked (existing).
 
 ---
@@ -24,7 +30,10 @@ Priority follows which systems have verified RAM reads. Within a tier, pick by t
    - N64: Ocarina of Time, Majora's Mask, Super Mario 64 (existing), GoldenEye, Perfect Dark, Mario Kart 64 (existing), Smash 64 (existing), Paper Mario.
 2. **Tier 2: PSX and GameCube** (very cool, RAM maps need verifying). PSX: MGS, FF7, SotN, RE/RE2, Doom, Tekken 3, CTR, Tony Hawk 2.
    GameCube: F-Zero GX, Luigi's Mansion, Resident Evil (GC). GameCube is capped at 2 race windows (see below).
-3. **Tier 3: everything else** (RAM not yet checked, mostly lighter cores). GB/GBA, Genesis, Neo Geo, TurboGrafx-16, arcade. PS2 is last (turns only).
+3. **Tier 3: everything else** (integration/version checks still vary, mostly lighter cores). GB/GBA have local mapped-read evidence; Genesis, Neo Geo, TurboGrafx-16 and arcade have source leads but no matching local ROM tests. PS2 is last (turns only).
+
+These tiers are build suggestions, not research status. PSX and GameCube also have real local RAM
+observations; see the audit for the exact core/ROM and whether a goal itself was tested.
 
 ---
 
@@ -381,7 +390,7 @@ Easiest to build and fun right away:
 3. **Super Metroid: Morph Ball and Ridley** [XS/S]
 4. **MGS: Grey Fox** [S] (the one you asked for)
 5. **Zelda ALttP: Master Sword** [S] (item flag)
-6. **Mega Man 2: Magnet Beam / Metal Man** [XS/S]
+6. **Mega Man 1: Magnet Beam / Mega Man 2: Metal Man** [XS/S]
 
 ## Decisions so far
 - Mostly race; versus only for fighters; turns only for heavy consoles.
@@ -391,5 +400,6 @@ Easiest to build and fun right away:
 - Hardware: i7 + RTX 2060.
 
 ## Open questions
-- Which games from the 52 do you want to prioritize first? I can then do the RAM research for those.
+- Which source-backed goals should be implemented first, after obtaining and validating their start states?
+- Resolve the audit's invalid or ambiguous goals before implementation (including Frigate Ourumov, Tekken 3 Kazuya, GX Death Race, Perfect Dark Elvis and prologue Bowser).
 - Any games you want swapped out, or any systems to add (Neo Geo, TurboGrafx, Game Boy Advance carts, Wii)?
