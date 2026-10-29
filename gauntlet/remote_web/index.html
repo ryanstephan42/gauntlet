@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gauntlet remote controller</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/controller.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Gauntlet remote controller</h1>
+    <p>Watch the host's Discord stream. Keep this page focused to send controls.</p>
+    <p id="status" role="status" aria-live="polite">Open the private invite from your host.</p>
+    <button id="connect" disabled>Connect controller</button>
+    <button id="disconnect" disabled>Disconnect</button>
+    <p id="device">Plug in a controller, then press a button to let your browser detect it.</p>
+    <p id="held">No controls held.</p>
+    <h2>Keyboard fallback</h2>
+    <p>Arrow keys: D-pad. Z/X: A/B. A/S: X/Y. Q/W: LB/RB. 1/2: LT/RT.
+      Enter: Start. Shift: Select.</p>
+    <p>Controls release when you switch away, unplug the pad, or disconnect.
+      Reconnect here if the connection drops. Restarting the desktop bridge needs a new invite.</p>
+    <p>This link grants controller access, not desktop access. Only share it with your player.</p>
+  </main>
+</body>
+</html>

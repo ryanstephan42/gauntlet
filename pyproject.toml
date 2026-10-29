@@ -11,17 +11,21 @@ requires-python = ">=3.11"
 dependencies = ["pygame-ce>=2.5"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6", "aiohttp>=3.12"]
 build = ["pyinstaller>=6"]
+relay = ["aiohttp>=3.12"]
+remote = ["aiohttp>=3.12", "evdev>=1.9; sys_platform == 'linux'"]
 
 [project.scripts]
 gauntlet = "gauntlet.app:main"
+gauntlet-relay = "gauntlet.remote_relay:main"
+gauntlet-remote = "gauntlet.remote_input:main"
 
 [tool.setuptools]
 packages = ["gauntlet", "gauntlet.ui"]
 
 [tool.setuptools.package-data]
-gauntlet = ["presets/*.json"]
+gauntlet = ["presets/*.json", "remote_web/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -180,6 +180,45 @@ def start_session(d, challenge_next=0, best_of=None):
     return d.screen.session
 
 
+def test_remote_invite_screen(driver, monkeypatch):
+    import pygame
+
+    d = driver
+    copied = []
+    started = []
+    remotes = d.app.remotes
+    for remote in remotes:
+        monkeypatch.setattr(remote, "start", lambda url, key, r=remote: started.append((r, url, key)))
+    monkeypatch.setattr(pygame.scrap, "put_text", copied.append)
+    d.menu("Remote Controller")
+    assert isinstance(d.screen, flow.RemoteControllerScreen)
+    d.field("relay")
+    d.press(Action.CONFIRM)
+    d.type_text("https://controls.example.com/")
+    assert load_settings(d.app.settings_path).remote_relay_url == "https://controls.example.com"
+    d.field("create_1")
+    d.press(Action.CONFIRM)
+    d.field("create_2")
+    d.press(Action.CONFIRM)
+    assert [r for r, _, _ in started] == remotes[:2]
+    assert all(url == "https://controls.example.com" for _, url, _ in started)
+    assert all(key == os.path.join(d.app.settings.state_path, "remote-relay.key")
+               for _, _, key in started)
+    remotes[0].invite = "https://controls.example.com/#room=first&token=private"
+    remotes[1].invite = "https://controls.example.com/#room=second&token=private"
+    d.settle()
+    d.field("copy_1")
+    d.press(Action.CONFIRM)
+    d.field("copy_2")
+    d.press(Action.CONFIRM)
+    assert copied == [remotes[0].invite, remotes[1].invite]
+    d.press(Action.BACK)
+    assert isinstance(d.screen, flow.MainMenu)
+    assert all(remote.invite for remote in remotes[:2])  # navigating away must not stop hosting
+    d.app.shutdown()
+    assert all(not remote.invite for remote in remotes)
+
+
 def shop_and_launch(d, buy_p1=True):
     d.press(Action.CONFIRM)                      # round intro -> shop
     assert isinstance(d.screen, flow.ShopScreen)

@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from .actions import Effect, EffectContext, EffectScheduler, collect_config
 from .memory import Memory, compare, is_per_player, read_metric, var_for
 from .referee import RaceReferee, Referee, TurnReferee, Verdict, forfeit_verdict, rank_turns
+from .remote_input import RA_AXES, RA_BUTTONS
 from . import startstate, winplace
 
 log = logging.getLogger("gauntlet.match")
@@ -44,6 +45,7 @@ class Participant:
     pad_index: int = None  # joystick device index, if any
     keyboard: str = None   # "keyboard" / "keyboard2" / None
     color: tuple = None    # player colour (rgb), e.g. for window borders
+    remote: bool = False   # Gauntlet's Linux virtual controller (known SDL layout)
 
 
 @dataclass
@@ -111,6 +113,13 @@ def build_config(participants, purchases, settings, turn_player=None):
             port = 1 if turn_player is not None else p.port
             if p.pad_index is not None:
                 extra[f"input_player{port}_joypad_index"] = p.pad_index
+            if p.remote:
+                extra["input_joypad_driver"] = "sdl2"
+                for button in PAD_BUTTONS:
+                    extra[f"input_player{port}_{button}_btn"] = RA_BUTTONS.get(button, "nul")
+                    extra[f"input_player{port}_{button}_axis"] = RA_AXES.get(button, "nul")
+                for axis, binding in RA_AXES.items():
+                    extra[f"input_player{port}_{axis}_axis"] = binding
             if p.keyboard == "keyboard2":
                 for button, key in KEYBOARD2_RA.items():
                     extra[f"input_player{port}_{button}"] = key

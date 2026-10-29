@@ -8,6 +8,7 @@ import pygame
 from .. import inputmap as im
 from ..games import load_games
 from ..retroarch import Launcher
+from ..remote_input import RemoteController
 from ..screens import ScreenManager
 from ..stats import Stats
 from ..theme import DEFAULT_THEME
@@ -51,6 +52,7 @@ class App:
         self.clock = pygame.time.Clock()
         self._injected = []
         self._health = {}
+        self.remotes = [RemoteController() for _ in range(3)]
         pygame.key.start_text_input()
 
     # -- display ---------------------------------------------------------------------------
@@ -235,6 +237,11 @@ class App:
 
     # -- loop ------------------------------------------------------------------------------------
     def step(self, dt):
+        for remote in self.remotes:
+            previous_error = remote.error
+            remote.poll()
+            if remote.error and remote.error != previous_error:
+                self.toasts.show(remote.error)
         for ev in pygame.event.get():
             self.process(ev)
             if not self.running:
@@ -276,6 +283,11 @@ class App:
 
     def shutdown(self):
         """Exit cleanly: stop matches (kills RetroArch), save state."""
+        for remote in self.remotes:
+            try:
+                remote.stop()
+            except RuntimeError:
+                log.exception("Error while stopping remote controller")
         for screen in reversed(self.manager.stack):
             try:
                 screen.on_exit()

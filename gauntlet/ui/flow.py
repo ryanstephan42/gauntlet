@@ -10,6 +10,7 @@ from ..layout import DESIGN_H, DESIGN_W
 from ..match import MatchRunner, Participant, Purchase, RacePlan, race_setup
 from ..playlist import Playlist
 from ..referee import Verdict
+from ..remote_input import PAD_NAME
 from ..session import PLAYER_COLORS, Player, Session
 from ..stats import ACHIEVEMENTS
 from .base import BaseScreen, Field, FormScreen, MenuScreen
@@ -56,7 +57,8 @@ def make_participants(app, players):
     for i, (pid, pl) in enumerate(players):
         idx = app.input.device_index(pl.device)
         out.append(Participant(pid, pl.name, i + 1, idx if idx is not None else pl.pad_index,
-                               pl.device if pl.device in (KEYBOARD, KEYBOARD2) else None, pl.rgb))
+                               pl.device if pl.device in (KEYBOARD, KEYBOARD2) else None, pl.rgb,
+                               is_pad(pl.device) and app.input.pad_name(pl.device) == PAD_NAME))
     return out
 
 
@@ -128,6 +130,8 @@ class MainMenu(MenuScreen):
              "Players join with their controllers, pick games, shop for power-ups and compete."),
             ("Resume Session", (lambda: self.resume(resume)) if resume else None, bool(resume),
              "Continue the last unfinished session." if resume else "No unfinished session."),
+            ("Remote Controller", lambda: self.push(RemoteControllerScreen(a)), True,
+             "Create and copy a private invite for a friend. Stream video separately through Discord."),
             ("Add Game", lambda: self.push(tools.WizardScreen(a)), True,
              "Step-by-step wizard: pick a system, core and ROM, choose a challenge template and shop items."),
             ("Manage Games", lambda: self.push(tools.GamesManager(a)), True,
@@ -165,6 +169,76 @@ class MainMenu(MenuScreen):
 
 
 # ------------------------------------------------------------------------------------ player setup
+class RemoteControllerScreen(FormScreen):
+    title = "Remote Controller"
+    subtitle = "Up to three remote players; stream video and audio through Discord"
+
+    def __init__(self, app):
+        self.remotes = app.remotes
+        fields = [Field("relay", "Relay URL", "text", app.settings.remote_relay_url, max_len=200,
+                        help="Public HTTPS relay address. The private key stays in your local state folder.")]
+        for index, remote in enumerate(self.remotes, 1):
+            fields.extend([
+                Field(f"status_{index}", f"REMOTE PLAYER {index} — {remote.status}", "info"),
+                Field(f"create_{index}", "Create Invite", "button", on_press=lambda r=remote: self.create(r),
+                      help="Create a unique invite and virtual gamepad for this remote player."),
+                Field(f"copy_{index}", "Copy Invite Link", "button", on_press=lambda r=remote: self.copy(r),
+                      help="Send this private link to the matching player. Anyone with it can claim this controller."),
+                Field(f"revoke_{index}", "Revoke Invite", "button", on_press=lambda r=remote: self.revoke(r),
+                      help="Disconnect this player and revoke only their invite."),
+            ])
+        super().__init__(app, fields)
+
+    def changed(self, field):
+        if field.key == "relay":
+            from ..remote_input import relay_url
+            try:
+                url = relay_url(field.value)
+            except ValueError as exc:
+                self.toast(str(exc))
+                field.value = self.settings.remote_relay_url
+                return
+            self.settings.remote_relay_url = field.value = url
+            self.app.save_settings()
+
+    def create(self, remote):
+        try:
+            remote.start(self.settings.remote_relay_url,
+                         os.path.join(self.settings.state_path, "remote-relay.key"))
+        except (OSError, ValueError) as exc:
+            self.app.alert(str(exc), title="Cannot create invite")
+
+    def copy(self, remote):
+        import pygame
+        if not remote.invite:
+            self.toast("Create an invite first")
+            return
+        try:
+            pygame.scrap.put_text(remote.invite)
+        except pygame.error as exc:
+            self.app.alert(f"Could not copy invite: {exc}", title="Clipboard unavailable")
+            return
+        self.toast("Private invite copied")
+
+    def revoke(self, remote):
+        if remote.active:
+            self.app.confirm("Disconnect this friend and revoke their invite?", lambda: self._stop(remote))
+
+    def _stop(self, remote):
+        try:
+            remote.stop()
+        except RuntimeError as exc:
+            self.app.alert(str(exc), title="Bridge stopping")
+
+    def update(self, dt):
+        super().update(dt)
+        self.field("relay").enabled = not any(remote.active for remote in self.remotes)
+        for index, remote in enumerate(self.remotes, 1):
+            self.field(f"status_{index}").label = f"REMOTE PLAYER {index} — {remote.status}"
+            self.field(f"create_{index}").enabled = not remote.active
+            self.field(f"copy_{index}").enabled = bool(remote.invite)
+            self.field(f"revoke_{index}").enabled = remote.active
+
 class PlayerSetup(BaseScreen):
     """Press A to join. Same device again adds a hotseat player. With `session`: reassign controllers."""
     title = "Players"
