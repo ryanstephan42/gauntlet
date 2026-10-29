@@ -36,6 +36,19 @@ Logs, settings saves, sessions, stats and generated RetroArch configs go in the 
   - The match menu (B or Esc in Gauntlet) can end the match and report the result by hand,
     forfeit a player, or cancel the match (purchases are refunded).
 
+### Remote player over Discord
+
+A Linux host can receive a friend's browser controller through a self-hosted HTTPS relay,
+while streaming the game over Discord. No Tailscale or desktop port forwarding is needed.
+Install the optional remote dependencies, then use **Remote Controller** on the main menu
+to create, copy and revoke a private invite link. Gauntlet manages the virtual gamepad and
+shows each friend's connection status; host up to three remote controllers at once without a
+separate bridge terminal.
+The optional `gauntlet-remote` command also works as a standalone bridge;
+`gauntlet-relay` serves the invite page and forwards only controller state.
+See [remote controller setup](docs/remote-controller.md) for installation, permissions,
+server deployment and latency limitations.
+
 ### Races: single-player challenges played at the same time
 Challenges with `mode: "turns"` (for example "most coins in SM64") normally run once per player.
 When every player has their own controller, Gauntlet runs them as a **race** instead:

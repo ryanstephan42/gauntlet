@@ -2,6 +2,7 @@
 import pygame
 
 from . import inputmap as im
+from .remote_input import PAD_NAME
 
 
 class PygameInput:
@@ -51,6 +52,14 @@ class PygameInput:
         self.held.setdefault(device, set()).add(action)
         return im.InputEvent(device, action)
 
+    def _button_action(self, instance, button):
+        pad = self.pads.get(instance)
+        # The generic mapping accepts button 9 as Start; on our known layout it is L3.
+        if (button == 9 and pad is not None and pad.get_name() == PAD_NAME
+                and im.BUTTON_BINDINGS.get(button) == im.DEFAULT_BUTTON_BINDINGS.get(button)):
+            return None
+        return im.button_to_action(button)
+
     def translate(self, event):
         """Returns an InputEvent or None."""
         t = event.type
@@ -81,10 +90,10 @@ class PygameInput:
                 self.on_disconnect(device)
             return None
         if t == pygame.JOYBUTTONDOWN:
-            action = im.button_to_action(event.button)
+            action = self._button_action(event.instance_id, event.button)
             return self._press(im.pad_device(event.instance_id), action) if action else None
         if t == pygame.JOYBUTTONUP:
-            action = im.button_to_action(event.button)
+            action = self._button_action(event.instance_id, event.button)
             if action:
                 self.held.get(im.pad_device(event.instance_id), set()).discard(action)
             return None

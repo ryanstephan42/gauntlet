@@ -52,6 +52,7 @@ class Settings:
     split_keyboard: bool = False
     key_bindings: dict = field(default_factory=dict)
     button_bindings: dict = field(default_factory=dict)
+    remote_relay_url: str = ""
     # Match behaviour
     boot_timeout: float = 30.0
     poll_interval: float = 0.2
