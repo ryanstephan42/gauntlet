@@ -13,6 +13,10 @@ python3 -m venv .venv
 Or install it as a package with `pip install .`, then run `gauntlet`. To build a standalone folder,
 run `pip install pyinstaller && pyinstaller gauntlet.spec` (output in `dist/gauntlet`).
 
+To add Gauntlet to the Linux desktop app menu, run `packaging/install-desktop.sh`. It keeps its
+own clone of `main` in `~/.local/share/gauntlet/app`, with a venv that includes the remote
+controller extras, and installs a `Gauntlet` launcher and icon. Run it again later to update.
+
 On first run Gauntlet finds RetroArch by itself. It checks RetroDECK and the libretro Flatpak,
 `retroarch` on the PATH, and the usual install folders. If several installs exist, pick one under
 **Settings → RetroArch install**, or set `retroarch_command` or `retroarch_path`. Gauntlet also
